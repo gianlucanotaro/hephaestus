@@ -59,6 +59,7 @@ struct SettingsView: View {
                 Text("\(Int(opacity * 100))%").monospacedDigit().frame(width: 50, alignment: .trailing)
             }
             Toggle("Show zone numbers", isOn: $showNumbers)
+            LayoutHotkeysSettingsView()
             Divider()
             Text("Choose the layout from the menu bar. In Ultrawide 3-way the side zones share the remaining width equally.\nHotkeys: ⌃⌥← first zone · ⌃⌥↑ middle zone · ⌃⌥→ last zone · ⌃⌥Z preview")
                 .font(.footnote).foregroundStyle(.secondary)
