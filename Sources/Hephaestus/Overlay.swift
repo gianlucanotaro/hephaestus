@@ -3,7 +3,7 @@ import AppKit
 /// Translucent, click-through outlines showing where each zone sits.
 final class Overlay {
     private var windows: [NSWindow] = []
-    private var dragViews: [Zone: ZoneView] = [:]
+    private var dragViews: [DragKey: ZoneView] = [:]
     private var hideWork: DispatchWorkItem?
     var isVisible: Bool { !windows.isEmpty }
 
@@ -16,7 +16,7 @@ final class Overlay {
           for zone in Zone.allCases {
             guard let rect = zones[zone] else { continue }
             let w = makeWindow(rect)
-            w.contentView = ZoneView(color: colors[zone] ?? .gray, label: zone.title)
+            w.contentView = ZoneView(look: .preview(color: colors[zone] ?? .gray, label: zone.title))
             w.orderFrontRegardless()
             windows.append(w)
           }
@@ -28,24 +28,27 @@ final class Overlay {
         }
     }
 
-    /// Drag mode: zones of a single screen, with one zone highlightable as the drop target.
-    func showDrag(on screen: NSScreen) {
+    /// Drag mode: zones of the given screens, each zone highlightable as a drop target.
+    func showDrag(on screens: [NSScreen]) {
         hide()
-        let colors: [Zone: NSColor] = [.left: .systemBlue, .center: .systemGreen, .right: .systemOrange]
-        let zones = ZoneLayout.zones(for: screen)
-        for zone in Zone.allCases {
-            guard let rect = zones[zone] else { continue }
-            let w = makeWindow(rect)
-            let view = ZoneView(color: colors[zone] ?? .gray, label: zone.title)
-            w.contentView = view
-            w.orderFrontRegardless()
-            windows.append(w)
-            dragViews[zone] = view
+        let style = OverlayStyle.current
+        for screen in screens {
+            let zones = ZoneLayout.zones(for: screen)
+            for (index, zone) in Zone.allCases.enumerated() {
+                guard let rect = zones[zone] else { continue }
+                let w = makeWindow(rect)
+                let view = ZoneView(look: .drag(style: style, number: index + 1))
+                w.contentView = view
+                w.orderFrontRegardless()
+                windows.append(w)
+                dragViews[DragKey(screen: screen.displayID, zone: zone)] = view
+            }
         }
     }
 
-    func highlight(_ zone: Zone?) {
-        for (z, view) in dragViews { view.highlighted = (z == zone) }
+    /// Highlights `zones` on `screen` and dims every other zone.
+    func highlight(_ zones: Set<Zone>, on screen: NSScreen?) {
+        for (key, view) in dragViews { view.highlighted = key.screen == screen?.displayID && zones.contains(key.zone) }
     }
 
     func hide() {
@@ -67,25 +70,50 @@ final class Overlay {
     }
 }
 
+private struct DragKey: Hashable {
+    let screen: UInt32
+    let zone: Zone
+}
+
 private final class ZoneView: NSView {
-    let color: NSColor
-    let label: String
+    enum Look {
+        case preview(color: NSColor, label: String)
+        case drag(style: OverlayStyle, number: Int)
+    }
+
+    let look: Look
     var highlighted = false { didSet { if highlighted != oldValue { needsDisplay = true } } }
-    init(color: NSColor, label: String) {
-        self.color = color; self.label = label
+    init(look: Look) {
+        self.look = look
         super.init(frame: .zero)
     }
     required init?(coder: NSCoder) { fatalError() }
 
     override func draw(_ dirtyRect: NSRect) {
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 12, yRadius: 12)
-        color.withAlphaComponent(highlighted ? 0.40 : 0.12).setFill(); path.fill()
-        color.withAlphaComponent(0.9).setStroke(); path.lineWidth = 4; path.stroke()
-        let text = "\(label)  \(Int(bounds.width))×\(Int(bounds.height))" as NSString
+        switch look {
+        case let .preview(color, label):
+            color.withAlphaComponent(highlighted ? 0.40 : 0.12).setFill(); path.fill()
+            color.withAlphaComponent(0.9).setStroke(); path.lineWidth = 4; path.stroke()
+            drawText("\(label)  \(Int(bounds.width))×\(Int(bounds.height))", size: 28, color: color)
+        case let .drag(style, number):
+            // Dynamic system colors resolve against the view's appearance, so draw inside it.
+            effectiveAppearance.performAsCurrentDrawingAppearance {
+                let fill = highlighted ? style.highlight : style.inactive
+                fill.withAlphaComponent(highlighted ? style.opacity : style.opacity * 0.4).setFill(); path.fill()
+                (highlighted ? style.highlight : style.border).withAlphaComponent(0.9).setStroke()
+                path.lineWidth = highlighted ? 6 : 3; path.stroke()
+                if style.showNumbers { drawText("\(number)", size: 96, color: style.number.withAlphaComponent(highlighted ? 1 : 0.7)) }
+            }
+        }
+    }
+
+    private func drawText(_ string: String, size: CGFloat, color: NSColor) {
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 28, weight: .semibold), .foregroundColor: color,
+            .font: NSFont.systemFont(ofSize: size, weight: .semibold), .foregroundColor: color,
         ]
-        let size = text.size(withAttributes: attrs)
-        text.draw(at: NSPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2), withAttributes: attrs)
+        let text = string as NSString
+        let textSize = text.size(withAttributes: attrs)
+        text.draw(at: NSPoint(x: bounds.midX - textSize.width / 2, y: bounds.midY - textSize.height / 2), withAttributes: attrs)
     }
 }
