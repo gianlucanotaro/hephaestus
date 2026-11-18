@@ -134,6 +134,15 @@ enum ZoneLayout {
         return zones(layout: layout, in: surfaceFrame(for: screen), centerAspect: Prefs.aspect, gap: effectiveGap(for: layout))
     }
 
+    /// Zone gap in effect on `screen` (the per-layout gap of the layout that applies there).
+    static func gap(for screen: NSScreen) -> CGFloat { effectiveGap(for: layout(for: screen)) }
+
+    /// Hit-test `point` against `screen`'s zones using the same layout, gap and overlap policy that drew them.
+    /// The one entry point for drag hit-testing, so overlay, highlight and snap cannot disagree.
+    static func selection(at point: CGPoint, on screen: NSScreen, overlap: OverlapResolution = Prefs.overlapResolution) -> Set<ZoneIndex> {
+        selection(at: point, in: zones(for: screen), gap: gap(for: screen), overlap: overlap)
+    }
+
     /// Every connected screen with its zones.
     static func allZones() -> [(screen: NSScreen, zones: [CGRect])] {
         surfaceScreens().map { ($0, zones(for: $0)) }
