@@ -18,6 +18,7 @@ enum Prefs {
 
     static func register() {
         registerLayoutDefaults()
+        registerEligibilityDefaults()
         UserDefaults.standard.register(defaults: [
             aspectWKey: 16.0, aspectHKey: 9.0, gapKey: 8.0, dragActivationKey: DragActivation.shift.rawValue,
             multiZoneModifierKey: MultiZoneModifier.control.rawValue, showAllScreensKey: false, useSystemColorsKey: true,
@@ -81,10 +82,9 @@ enum ZoneLayout {
     /// Pure hit-test: the zone under `point` (the gap counts as part of the nearest zone), plus every
     /// zone adjacent to it whose facing edge is within `edgeThreshold` of the point. Empty if outside all zones.
     static func selection(at point: CGPoint, in zones: [CGRect], gap: CGFloat,
-                          edgeThreshold: CGFloat = ZoneLayout.edgeThreshold) -> Set<ZoneIndex> {
-        let slack = gap / 2
-        guard let primary = zones.indices.first(where: { zones[$0].insetBy(dx: -slack, dy: -slack).contains(point) })
-        else { return [] }
+                          edgeThreshold: CGFloat = ZoneLayout.edgeThreshold,
+                          overlap: OverlapResolution = .smallest) -> Set<ZoneIndex> {
+        guard let primary = ZoneResolution.primaryZone(at: point, in: zones, gap: gap, policy: overlap) else { return [] }
         let pr = zones[primary]
         var result: Set<ZoneIndex> = [primary]
         let tolerance = gap + 1

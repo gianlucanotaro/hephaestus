@@ -92,7 +92,7 @@ final class DragSnapController {
         else { return }
         var pid: pid_t = 0
         AXUIElementGetPid(window, &pid)
-        guard pid != getpid() else { return }
+        guard pid != getpid(), WindowEligibility.canSnap(window: window) else { return }
         tracked = window
         startFrame = WindowMover.frame(of: window)
     }
@@ -133,7 +133,8 @@ final class DragSnapController {
     /// Zones that would receive the window if dropped now: the hovered zone(s), plus every zone
     /// visited so far while multi-zone mode is on.
     private func selection(on screen: NSScreen) -> Set<ZoneIndex> {
-        let hovered = ZoneLayout.selection(at: NSEvent.mouseLocation, in: ZoneLayout.zones(for: screen), gap: Prefs.gap)
+        let hovered = ZoneLayout.selection(at: NSEvent.mouseLocation, in: ZoneLayout.zones(for: screen), gap: Prefs.gap,
+                                         overlap: Prefs.overlapResolution)
         guard isMultiZone else { accumulated = []; return hovered }
         accumulated.formUnion(hovered)
         return accumulated
