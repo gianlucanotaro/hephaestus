@@ -87,3 +87,7 @@ swift build        # quick compile check
 ```
 
 Sources are in `Sources/Hephaestus/`. See `CLAUDE.md` for conventions and gotchas.
+
+## License
+
+[MIT](LICENSE) © 2026 Gianluca Notaro
