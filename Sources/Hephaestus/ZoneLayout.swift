@@ -8,18 +8,16 @@ enum Zone: String, CaseIterable {
 
 /// User-configurable layout, persisted in UserDefaults.
 enum Prefs {
-    static let displayIDKey = "displayID"      // 0 = auto (widest aspect ratio)
     static let aspectWKey = "aspectW"
     static let aspectHKey = "aspectH"
     static let gapKey = "gap"
 
     static func register() {
         UserDefaults.standard.register(defaults: [
-            displayIDKey: 0, aspectWKey: 16.0, aspectHKey: 9.0, gapKey: 8.0,
+            aspectWKey: 16.0, aspectHKey: 9.0, gapKey: 8.0,
         ])
     }
 
-    static var displayID: UInt32 { UInt32(UserDefaults.standard.integer(forKey: displayIDKey)) }
     static var aspect: CGFloat {
         let w = UserDefaults.standard.double(forKey: aspectWKey)
         let h = UserDefaults.standard.double(forKey: aspectHKey)
@@ -37,8 +35,11 @@ extension NSScreen {
 enum ZoneLayout {
     /// Pure geometry: a centered rect with the given aspect ratio at full height,
     /// and the leftover width split evenly into left/right. Same coordinate space as `frame`.
+    /// Screens too narrow for that (sides under 10% of the width, e.g. a 16:10 laptop panel)
+    /// fall back to a proportional 25/50/25 split so every screen still gets three zones.
     static func zones(in frame: CGRect, centerAspect: CGFloat, gap: CGFloat) -> [Zone: CGRect] {
-        let centerW = min(frame.height * centerAspect, frame.width)
+        var centerW = frame.height * centerAspect
+        if (frame.width - centerW) / 2 < frame.width * 0.10 { centerW = frame.width * 0.5 }
         let sideW = (frame.width - centerW) / 2
         let inset = gap / 2
         func r(_ x: CGFloat, _ w: CGFloat) -> CGRect {
@@ -51,22 +52,29 @@ enum ZoneLayout {
         ]
     }
 
-    /// The screen to carve up: the chosen display, else the one with the widest aspect ratio.
-    static func targetScreen() -> NSScreen? {
-        let id = Prefs.displayID
-        if id != 0, let s = NSScreen.screens.first(where: { $0.displayID == id }) { return s }
-        return NSScreen.screens.max { $0.frame.width / $0.frame.height < $1.frame.width / $1.frame.height }
+    /// Zones for one screen, in AppKit coordinates (origin bottom-left of primary screen).
+    static func zones(for screen: NSScreen) -> [Zone: CGRect] {
+        zones(in: screen.visibleFrame, centerAspect: Prefs.aspect, gap: Prefs.gap)
     }
 
-    /// Zones in AppKit coordinates (origin bottom-left of primary screen), for overlays.
-    static func currentZones() -> (screen: NSScreen, zones: [Zone: CGRect])? {
-        guard let screen = targetScreen() else { return nil }
-        return (screen, zones(in: screen.visibleFrame, centerAspect: Prefs.aspect, gap: Prefs.gap))
+    /// Every connected screen with its zones.
+    static func allZones() -> [(screen: NSScreen, zones: [Zone: CGRect])] {
+        NSScreen.screens.map { ($0, zones(for: $0)) }
     }
 
-    /// Convert an AppKit rect to Accessibility/Quartz coordinates (origin top-left of primary screen).
+    /// The screen containing most of an AppKit-space rect, else the main screen.
+    static func screen(containing rect: CGRect) -> NSScreen? {
+        NSScreen.screens.max { area($0.frame.intersection(rect)) < area($1.frame.intersection(rect)) }
+            .flatMap { area($0.frame.intersection(rect)) > 0 ? $0 : nil } ?? NSScreen.main
+    }
+
+    private static func area(_ r: CGRect) -> CGFloat { r.isNull ? 0 : r.width * r.height }
+
+    /// Convert between AppKit coordinates (origin bottom-left of primary screen) and
+    /// Accessibility/Quartz coordinates (origin top-left of primary screen). The flip is its own inverse.
     static func toAX(_ rect: CGRect) -> CGRect {
         let primaryH = NSScreen.screens.first?.frame.height ?? 0
         return CGRect(x: rect.minX, y: primaryH - rect.maxY, width: rect.width, height: rect.height)
     }
+    static func fromAX(_ rect: CGRect) -> CGRect { toAX(rect) }
 }

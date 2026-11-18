@@ -21,5 +21,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSUIElement</key><true/>
 </dict></plist>
 PLIST
-codesign --force --sign - "$APP"
+if security find-identity -p codesigning | grep -q "Hephaestus Dev"; then
+  codesign --force --sign "Hephaestus Dev" "$APP"
+else
+  echo "WARNING: ad-hoc signing; Accessibility permission will reset on every rebuild. Run ./setup-signing.sh once."
+  codesign --force --sign - "$APP"
+fi
 echo "Built $APP"

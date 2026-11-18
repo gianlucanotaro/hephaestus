@@ -27,19 +27,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func rebuildMenu() {
         let menu = NSMenu()
-        if let (screen, zones) = ZoneLayout.currentZones() {
-            menu.addItem(withTitle: "\(screen.localizedName) \(Int(screen.frame.width))×\(Int(screen.frame.height))",
+        for (screen, zones) in ZoneLayout.allZones() {
+            menu.addItem(withTitle: "\(screen.localizedName) \(Int(screen.frame.width))×\(Int(screen.frame.height))  →  \(Zone.allCases.map { "\(Int(zones[$0]!.width))" }.joined(separator: " / "))",
                          action: nil, keyEquivalent: "").isEnabled = false
-            for z in Zone.allCases {
-                let r = zones[z]!
-                let item = NSMenuItem(title: "Snap window → \(z.title)  (\(Int(r.width))×\(Int(r.height)))",
-                                      action: #selector(snap(_:)), keyEquivalent: "")
-                item.representedObject = z.rawValue
-                item.target = self
-                menu.addItem(item)
-            }
-        } else {
-            menu.addItem(withTitle: "No display found", action: nil, keyEquivalent: "").isEnabled = false
+        }
+        menu.addItem(.separator())
+        for z in Zone.allCases {
+            let item = NSMenuItem(title: "Snap window → \(z.title)", action: #selector(snap(_:)), keyEquivalent: "")
+            item.representedObject = z.rawValue
+            item.target = self
+            menu.addItem(item)
         }
         menu.addItem(.separator())
         menu.addItem(withTitle: "Show Zones", action: #selector(showZones), keyEquivalent: "").target = self

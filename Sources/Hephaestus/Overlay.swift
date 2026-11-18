@@ -10,9 +10,9 @@ final class Overlay {
 
     func show(autoHideAfter seconds: TimeInterval? = 1.5) {
         hide()
-        guard let (_, zones) = ZoneLayout.currentZones() else { return }
         let colors: [Zone: NSColor] = [.left: .systemBlue, .center: .systemGreen, .right: .systemOrange]
-        for zone in Zone.allCases {
+        for (_, zones) in ZoneLayout.allZones() {
+          for zone in Zone.allCases {
             guard let rect = zones[zone] else { continue }
             let w = NSWindow(contentRect: rect, styleMask: .borderless, backing: .buffered, defer: false)
             w.isOpaque = false
@@ -24,6 +24,7 @@ final class Overlay {
             w.contentView = ZoneView(color: colors[zone] ?? .gray, label: zone.title)
             w.orderFrontRegardless()
             windows.append(w)
+          }
         }
         if let seconds {
             let work = DispatchWorkItem { [weak self] in self?.hide() }

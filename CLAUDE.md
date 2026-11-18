@@ -1,19 +1,19 @@
 # CLAUDE.md — Hephaestus
 
-macOS menu bar app that splits an ultrawide display into three window zones (left / 16:9 center / right) and snaps windows into them.
+macOS menu bar app, a FancyZones-style window manager for Mac. Splits every screen into window zones (default: left / 16:9 center / right) and snaps windows into them.
 
 ## Build & Run
 
 No Xcode; only Command Line Tools are installed, so `xcodebuild` is unavailable. Use SwiftPM.
 
 ```bash
-./build.sh                    # swift build -c release → build/Hephaestus.app (ad-hoc signed)
+./build.sh                    # swift build -c release → build/Hephaestus.app (signed with "Hephaestus Dev" if present, else ad-hoc)
 open build/Hephaestus.app     # LSUIElement app: menu bar icon only, no Dock icon
 swift build                   # quick compile check
 pkill -x Hephaestus           # stop it
 ```
 
-Rebuilding changes the ad-hoc signature, so macOS may require re-granting Accessibility (System Settings → Privacy & Security).
+Run `./setup-signing.sh` once to create a local "Hephaestus Dev" certificate; `build.sh` then signs with it. Without it the build is ad-hoc signed, the signature changes every rebuild, and macOS forgets the Accessibility grant (System Settings → Privacy & Security).
 
 ## Stack
 
@@ -26,11 +26,11 @@ Rebuilding changes the ad-hoc signature, so macOS may require re-granting Access
 
 `Sources/Hephaestus/`
 - `main.swift` — `AppDelegate`: status item, menu, hotkey registration, settings window
-- `ZoneLayout.swift` — `Zone` enum, `Prefs` (UserDefaults), and `ZoneLayout` geometry. Keep `ZoneLayout.zones(in:centerAspect:gap:)` pure so it stays testable
+- `ZoneLayout.swift` — `Zone` enum, `Prefs` (UserDefaults), and `ZoneLayout` geometry. Zones are computed for every connected screen; narrow screens fall back to a 25/50/25 split. Keep `ZoneLayout.zones(in:centerAspect:gap:)` pure so it stays testable
 - `WindowMover.swift` — snaps the frontmost window to a zone via AX
 - `HotKeys.swift` — Carbon hotkey wrapper (default ⌃⌥←/↑/→ snap, ⌃⌥Z preview)
 - `Overlay.swift` — click-through zone outline windows
-- `SettingsView.swift` — display picker, aspect ratio, gap (`@AppStorage` keys defined in `Prefs`)
+- `SettingsView.swift` — aspect ratio, gap (`@AppStorage` keys defined in `Prefs`)
 
 ## Conventions & Gotchas
 
@@ -49,7 +49,8 @@ Rebuilding changes the ad-hoc signature, so macOS may require re-granting Access
 
 ## Rules for Claude
 
-- **Never commit or push.** Commits and pushes are the developer's job (inherited from the workspace `/Users/rsdf/code/CLAUDE.md`).
+- **Git workflow (overrides the workspace "never commit or push" rule for this repo):** work happens on feature branches named `feat/<issue-number>-<slug>`, one PR per GitHub issue, using `gh`. Claude may commit, push feature branches and open PRs. Claude must **never merge a PR, push to `main`, force-push, or rewrite history**; the developer merges. Every PR body links its issue with `Closes #N`.
+- Commit messages and PR descriptions end with the attribution lines from the session's system reminder.
 - Do not add third-party Swift packages without flagging it first.
 - Run `swift build` after changes and fix all warnings before finishing.
 - Prefer public APIs; flag any private API use explicitly before adding it.
