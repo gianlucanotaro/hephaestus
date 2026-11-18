@@ -29,7 +29,8 @@ Run `./setup-signing.sh` once to create a local "Hephaestus Dev" certificate; `b
 - `ZoneLayout.swift` — `Zone` enum, `Prefs` (UserDefaults), and `ZoneLayout` geometry. Zones are computed for every connected screen; narrow screens fall back to a 25/50/25 split. Keep `ZoneLayout.zones(in:centerAspect:gap:)` pure so it stays testable
 - `WindowMover.swift` — snaps the frontmost window to a zone via AX
 - `HotKeys.swift` — Carbon hotkey wrapper (default ⌃⌥←/↑/→ snap, ⌃⌥Z preview)
-- `Overlay.swift` — click-through zone outline windows
+- `Overlay.swift` — click-through zone outline windows; drag mode shows one screen with a highlightable drop zone
+- `DragSnap.swift` — global mouse monitor: detects window drags (window moved, not resized), shows zones per `DragActivation`, snaps on release
 - `SettingsView.swift` — aspect ratio, gap (`@AppStorage` keys defined in `Prefs`)
 
 ## Conventions & Gotchas

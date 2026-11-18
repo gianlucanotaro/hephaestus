@@ -26,6 +26,12 @@ enum WindowMover {
               let target = ZoneLayout.zones(for: screen)[zone]
         else { return false }
 
+        move(window, toAppKitRect: target)
+        return true
+    }
+
+    /// Move/resize a window to an AppKit-space rect.
+    static func move(_ window: AXUIElement, toAppKitRect target: CGRect) {
         let rect = ZoneLayout.toAX(target)
         var origin = rect.origin
         var size = rect.size
@@ -33,10 +39,21 @@ enum WindowMover {
         setSize(window, &size)
         setPosition(window, &origin)
         setSize(window, &size)
-        return true
     }
 
-    private static func frame(of w: AXUIElement) -> CGRect? {
+    /// The window element that is `element` or contains it.
+    static func window(containing element: AXUIElement) -> AXUIElement? {
+        var role: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role) == .success,
+           (role as? String) == kAXWindowRole as String { return element }
+        var win: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXWindowAttribute as CFString, &win) == .success,
+              let w = win else { return nil }
+        return (w as! AXUIElement)
+    }
+
+    /// Window frame in AX (top-left origin) coordinates.
+    static func frame(of w: AXUIElement) -> CGRect? {
         var posRef: CFTypeRef?, sizeRef: CFTypeRef?
         guard AXUIElementCopyAttributeValue(w, kAXPositionAttribute as CFString, &posRef) == .success,
               AXUIElementCopyAttributeValue(w, kAXSizeAttribute as CFString, &sizeRef) == .success
