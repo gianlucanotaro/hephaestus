@@ -3,7 +3,7 @@ import Carbon.HIToolbox
 /// Global hotkeys via Carbon (works without extra permissions).
 /// Defaults: ⌃⌥← left, ⌃⌥↑ center, ⌃⌥→ right, ⌃⌥Z toggle overlay.
 final class HotKeys {
-    private var refs: [EventHotKeyRef?] = []
+    private var refs: [UInt32: EventHotKeyRef?] = [:]
     private var handlers: [UInt32: () -> Void] = [:]
     private var nextID: UInt32 = 1
 
@@ -19,13 +19,20 @@ final class HotKeys {
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), nil)
     }
 
-    func register(keyCode: Int, modifiers: Int = controlKey | optionKey, action: @escaping () -> Void) {
+    @discardableResult
+    func register(keyCode: Int, modifiers: Int = controlKey | optionKey, action: @escaping () -> Void) -> UInt32 {
         let id = nextID; nextID += 1
         handlers[id] = action
         var ref: EventHotKeyRef?
         RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers),
                             EventHotKeyID(signature: OSType(0x48455048), id: id),
                             GetApplicationEventTarget(), 0, &ref)
-        refs.append(ref)
+        refs[id] = ref
+        return id
+    }
+
+    func unregister(_ id: UInt32) {
+        handlers[id] = nil
+        if let ref = refs.removeValue(forKey: id), let ref { UnregisterEventHotKey(ref) }
     }
 }
