@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let overlay = Overlay()
     private let hotKeys = HotKeys()
+    private lazy var keyboardNav = KeyboardNavController(hotKeys: hotKeys)
     private lazy var dragSnap = DragSnapController(overlay: overlay)
     private var settingsWindow: NSWindow?
 
@@ -19,9 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         rebuildMenu()
         dragSnap.start()
 
-        hotKeys.register(keyCode: kVK_LeftArrow) { WindowMover.snapFrontWindow(slot: .first) }
-        hotKeys.register(keyCode: kVK_UpArrow) { WindowMover.snapFrontWindow(slot: .middle) }
-        hotKeys.register(keyCode: kVK_RightArrow) { WindowMover.snapFrontWindow(slot: .last) }
+        keyboardNav.start()
         hotKeys.register(keyCode: kVK_ANSI_Z) { [weak self] in self?.overlay.toggle() }
 
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
