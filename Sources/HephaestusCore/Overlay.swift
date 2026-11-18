@@ -11,15 +11,14 @@ final class Overlay {
 
     func show(autoHideAfter seconds: TimeInterval? = 1.5) {
         hide()
-        let colors: [Zone: NSColor] = [.left: .systemBlue, .center: .systemGreen, .right: .systemOrange]
+        let palette: [NSColor] = [.systemBlue, .systemGreen, .systemOrange, .systemPurple, .systemPink, .systemTeal]
         for (_, zones) in ZoneLayout.allZones() {
-          for zone in Zone.allCases {
-            guard let rect = zones[zone] else { continue }
-            let w = makeWindow(rect)
-            w.contentView = ZoneView(look: .preview(color: colors[zone] ?? .gray, label: zone.title))
-            w.orderFrontRegardless()
-            windows.append(w)
-          }
+            for (index, rect) in zones.enumerated() {
+                let w = makeWindow(rect)
+                w.contentView = ZoneView(look: .preview(color: palette[index % palette.count], label: Layout.zoneTitle(index)))
+                w.orderFrontRegardless()
+                windows.append(w)
+            }
         }
         if let seconds {
             let work = DispatchWorkItem { [weak self] in self?.hide() }
@@ -34,20 +33,19 @@ final class Overlay {
         let style = OverlayStyle.current
         for screen in screens {
             let zones = ZoneLayout.zones(for: screen)
-            for (index, zone) in Zone.allCases.enumerated() {
-                guard let rect = zones[zone] else { continue }
+            for (index, rect) in zones.enumerated() {
                 let w = makeWindow(rect)
                 let view = ZoneView(look: .drag(style: style, number: index + 1))
                 w.contentView = view
                 w.orderFrontRegardless()
                 windows.append(w)
-                dragViews[DragKey(screen: screen.displayID, zone: zone)] = view
+                dragViews[DragKey(screen: screen.displayID, zone: index)] = view
             }
         }
     }
 
     /// Highlights `zones` on `screen` and dims every other zone.
-    func highlight(_ zones: Set<Zone>, on screen: NSScreen?) {
+    func highlight(_ zones: Set<ZoneIndex>, on screen: NSScreen?) {
         for (key, view) in dragViews { view.highlighted = key.screen == screen?.displayID && zones.contains(key.zone) }
     }
 
@@ -72,7 +70,7 @@ final class Overlay {
 
 private struct DragKey: Hashable {
     let screen: UInt32
-    let zone: Zone
+    let zone: ZoneIndex
 }
 
 private final class ZoneView: NSView {

@@ -5,6 +5,9 @@ let package = Package(
     name: "Hephaestus",
     platforms: [.macOS(.v13)],
     targets: [
-        .executableTarget(name: "Hephaestus", path: "Sources/Hephaestus")
+        // All app logic lives in the library so tests can `@testable import` it.
+        .target(name: "HephaestusCore", path: "Sources/HephaestusCore"),
+        .executableTarget(name: "Hephaestus", dependencies: ["HephaestusCore"], path: "Sources/Hephaestus"),
+        .testTarget(name: "HephaestusCoreTests", dependencies: ["HephaestusCore"], path: "Tests/HephaestusCoreTests"),
     ]
 )
