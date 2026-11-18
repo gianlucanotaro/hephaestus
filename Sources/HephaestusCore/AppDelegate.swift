@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let screenMenu = ScreenLayoutMenu()
+    private let gridEditorMenu = GridEditorMenu()
     private var statusItem: NSStatusItem!
     private let overlay = Overlay()
     private let hotKeys = HotKeys()
@@ -58,6 +59,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let layoutsMenu = NSMenu()
         let current = screenMenu.addLayoutItems(to: layoutsMenu)
         let currentLayout = current.map { ZoneLayout.layout(for: $0) } ?? store.active
+        layoutsMenu.addItem(.separator())
+        gridEditorMenu.addItems(to: layoutsMenu, screen: current)
         layoutsMenu.addItem(.separator())
         layoutsMenu.addItem(withTitle: "Import Layout…", action: #selector(importLayout), keyEquivalent: "").target = self
         layoutsMenu.addItem(withTitle: "Export Layout…", action: #selector(exportLayout), keyEquivalent: "").target = self
