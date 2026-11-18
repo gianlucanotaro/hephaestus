@@ -26,6 +26,8 @@ enum Prefs {
         registerLayoutHotkeyDefaults()
         registerWheelCycleDefaults()
         registerIndicatorDefaults()
+        registerRotationDefaults()
+        registerNewWindowDefaults()
         UserDefaults.standard.register(defaults: [
             aspectWKey: 16.0, aspectHKey: 9.0, gapKey: 8.0, dragActivationKey: DragActivation.shift.rawValue,
             multiZoneModifierKey: MultiZoneModifier.control.rawValue, showAllScreensKey: false, useSystemColorsKey: true,
@@ -121,8 +123,9 @@ enum ZoneLayout {
 
     /// The layout in effect for `screen`. Single entry point for "which layout applies here";
     /// per-display assignment (by display UUID) with orientation defaults; see `ScreenLayoutStore`.
+    /// With "span across screens" on, the representative (first) screen's layout applies to the whole surface.
     static func layout(for screen: NSScreen) -> Layout {
-        ScreenLayoutStore.shared.layout(for: screen)
+        ScreenLayoutStore.shared.layout(for: surfaceOwner(of: screen))
     }
 
     /// Zones for one screen, in AppKit coordinates (origin bottom-left of primary screen), by `ZoneIndex`.

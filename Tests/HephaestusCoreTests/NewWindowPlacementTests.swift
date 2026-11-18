@@ -36,9 +36,12 @@ import Testing
         t = ok; t.subrole = "AXFloatingWindow"; #expect(!M.isPlaceable(t))
         t = ok; t.role = "AXSheet"; #expect(!M.isPlaceable(t))
         t = ok; t.subrole = nil; #expect(!M.isPlaceable(t))
-        t = ok; t.minimized = true; #expect(!M.isPlaceable(t))
-        t = ok; t.fullscreen = true; #expect(!M.isPlaceable(t))
-        t = ok; t.modal = true; #expect(!M.isPlaceable(t))
+        t = ok; t.isMinimized = true; #expect(!M.isPlaceable(t))
+        t = ok; t.isFullScreen = true; #expect(!M.isPlaceable(t))
+        t = ok; t.isModal = true; #expect(!M.isPlaceable(t))
+        // Same answer as the shared classifier, including its policy toggles.
+        t = ok; t.subrole = "AXDialog"
+        #expect(M.isPlaceable(t, policy: EligibilityPolicy(allowDialogs: true)))
     }
 
     private let a = M.ScreenGeometry(uuid: "A", visibleFrame: CGRect(x: 0, y: 0, width: 300, height: 100),

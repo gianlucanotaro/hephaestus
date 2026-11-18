@@ -35,18 +35,13 @@ enum NewWindowPlacementMath {
         return c.activeScreenSetting ? .activeScreen : .skip
     }
 
-    /// AX attributes of a candidate window (nil = attribute missing).
-    struct WindowTraits {
-        var role: String?
-        var subrole: String?
-        var minimized = false
-        var fullscreen = false
-        var modal = false
-    }
+    /// AX attributes of a candidate window (shared with the eligibility classifier).
+    typealias WindowTraits = HephaestusCore.WindowTraits
 
-    /// Only ordinary document-style windows: no sheets, dialogs, popups, floating panels, minimized or fullscreen windows.
-    static func isPlaceable(_ t: WindowTraits) -> Bool {
-        t.role == "AXWindow" && t.subrole == "AXStandardWindow" && !t.minimized && !t.fullscreen && !t.modal
+    /// Pure part of `NewWindowPlacement.isPlaceable`: the shared classifier (`WindowEligibility.isSnappable`).
+    /// By default only ordinary windows qualify: no sheets, dialogs, popups, floating panels, minimized or fullscreen.
+    static func isPlaceable(_ t: WindowTraits, policy: EligibilityPolicy = EligibilityPolicy()) -> Bool {
+        WindowEligibility.isSnappable(t, policy: policy)
     }
 
     /// True when `frame` matches one of `zones` (i.e. the window is "already snapped").

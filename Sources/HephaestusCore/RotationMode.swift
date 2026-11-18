@@ -46,23 +46,9 @@ extension Prefs {
 
 // MARK: - Window discovery
 
-/// Which windows take part in rotation. Kept behind one function so it can be swapped for
-/// `WindowEligibility.canSnap` (#16) once that lands.
+/// Which windows take part in rotation: exactly those that may snap anywhere else (type policy + excluded apps).
 enum RotationEligibility {
-    static func isEligible(_ window: AXUIElement) -> Bool {
-        func string(_ attr: String) -> String? {
-            var ref: CFTypeRef?
-            return AXUIElementCopyAttributeValue(window, attr as CFString, &ref) == .success ? ref as? String : nil
-        }
-        func bool(_ attr: String) -> Bool {
-            var ref: CFTypeRef?
-            return AXUIElementCopyAttributeValue(window, attr as CFString, &ref) == .success && (ref as? Bool) == true
-        }
-        return string(kAXRoleAttribute) == kAXWindowRole as String
-            && string(kAXSubroleAttribute) == kAXStandardWindowSubrole as String
-            && !bool(kAXMinimizedAttribute)
-            && !bool("AXFullScreen")
-    }
+    static func isEligible(_ window: AXUIElement) -> Bool { WindowEligibility.canSnap(window: window) }
 }
 
 struct RotatableWindow {
@@ -111,7 +97,6 @@ final class RotationController {
     private var defaultsObserver: NSObjectProtocol?
 
     func start() {
-        Prefs.registerRotationDefaults()
         applyPrefs()
         defaultsObserver = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
             self?.applyPrefs()

@@ -21,7 +21,6 @@ final class NewWindowPlacement {
     func start() {
         guard !started else { return }
         started = true
-        Prefs.registerNewWindowDefaults()
         let nc = NSWorkspace.shared.notificationCenter
         nc.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] n in
             if let app = n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication { self?.attach(app) }
@@ -79,20 +78,10 @@ final class NewWindowPlacement {
 
     // MARK: - Placement
 
-    /// Minimal local gate: standard, non-modal, non-minimized, non-fullscreen AXWindow (no sheets/popups/dialogs).
-    /// TODO: once the `WindowEligibility.canSnap(window:)` PR (#27) and this PR are both merged, delegate to it.
+    /// Same rules as every other move path: delegates to `WindowEligibility.canSnap(window:)` (window type
+    /// policy from Settings plus the excluded-apps list).
     static func isPlaceable(_ window: AXUIElement) -> Bool {
-        func string(_ a: String) -> String? {
-            var r: CFTypeRef?
-            return AXUIElementCopyAttributeValue(window, a as CFString, &r) == .success ? r as? String : nil
-        }
-        func flag(_ a: String) -> Bool {
-            var r: CFTypeRef?
-            return AXUIElementCopyAttributeValue(window, a as CFString, &r) == .success && (r as? Bool) == true
-        }
-        return NewWindowPlacementMath.isPlaceable(.init(
-            role: string(kAXRoleAttribute), subrole: string(kAXSubroleAttribute),
-            minimized: flag(kAXMinimizedAttribute), fullscreen: flag("AXFullScreen"), modal: flag(kAXModalAttribute)))
+        WindowEligibility.canSnap(window: window)
     }
 
     private func windowCreated(_ window: AXUIElement) {

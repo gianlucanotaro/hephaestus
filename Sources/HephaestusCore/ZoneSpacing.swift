@@ -51,6 +51,17 @@ extension ZoneLayout {
         span ? Array(NSScreen.screens.prefix(1)) : NSScreen.screens
     }
 
+    /// Pure: the element that owns the zone surface `element` belongs to. Without spanning every screen owns its own
+    /// surface; with spanning, the first one (the representative) owns the single shared surface.
+    static func owner<T>(of element: T, in all: [T], span: Bool) -> T {
+        span ? (all.first ?? element) : element
+    }
+
+    /// The screen whose layout/assignment governs `screen`'s zones (itself, or the representative when spanning).
+    static func surfaceOwner(of screen: NSScreen, span: Bool = Prefs.spanAllScreens) -> NSScreen {
+        owner(of: screen, in: NSScreen.screens, span: span)
+    }
+
     /// The screen (surface owner) for a cursor position, or nil if the point is on no screen.
     static func surfaceScreen(at point: CGPoint, span: Bool = Prefs.spanAllScreens) -> NSScreen? {
         guard let hit = NSScreen.screens.first(where: { $0.frame.contains(point) }) else { return nil }
@@ -79,7 +90,8 @@ final class LayoutGapMenu: NSObject {
     }
 
     func menuItem() -> NSMenuItem {
-        let layout = LayoutStore.shared.active
+        let layout = Self.currentLayout()
+        targetLayoutID = layout.id
         let current = layout.gap ?? Prefs.builtInGapOverrides[layout.id]
         let item = NSMenuItem(title: "Zone gap: \(Int(ZoneLayout.effectiveGap(for: layout))) pt", action: nil, keyEquivalent: "")
         let sub = NSMenu()
@@ -99,8 +111,16 @@ final class LayoutGapMenu: NSObject {
         return item
     }
 
+    /// The layout the menu was last built for (the cursor has left the screen's content by the time an item is picked).
+    private var targetLayoutID: String?
+
+    /// The layout of the screen under the cursor (per-screen layouts: there is no single "active" layout any more).
+    private static func currentLayout() -> Layout {
+        ZoneLayout.screenUnderCursor().map { ZoneLayout.layout(for: $0) } ?? LayoutStore.shared.active
+    }
+
     @objc private func pick(_ sender: NSMenuItem) {
-        Self.setGap(sender.representedObject as? Double, forLayoutID: LayoutStore.shared.active.id)
+        Self.setGap(sender.representedObject as? Double, forLayoutID: targetLayoutID ?? Self.currentLayout().id)
     }
 }
 
