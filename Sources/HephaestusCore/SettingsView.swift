@@ -60,6 +60,7 @@ struct SettingsView: View {
             }
             Toggle("Show zone numbers", isOn: $showNumbers)
             WindowStateSettings()
+            NewWindowPlacementSettings()
             Divider()
             Text("Choose the layout from the menu bar. In Ultrawide 3-way the side zones share the remaining width equally.\nHotkeys: ⌃⌥← first zone · ⌃⌥↑ middle zone · ⌃⌥→ last zone · ⌃⌥Z preview")
                 .font(.footnote).foregroundStyle(.secondary)

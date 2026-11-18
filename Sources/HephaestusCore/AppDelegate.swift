@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         rebuildMenu()
         dragSnap.start()
         WindowTracker.shared.start()
+        NewWindowPlacement.shared.start()
 
         hotKeys.register(keyCode: kVK_LeftArrow) { WindowMover.snapFrontWindow(slot: .first) }
         hotKeys.register(keyCode: kVK_UpArrow) { WindowMover.snapFrontWindow(slot: .middle) }
