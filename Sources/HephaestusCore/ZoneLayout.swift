@@ -20,6 +20,7 @@ enum Prefs {
         registerLayoutDefaults()
         registerEligibilityDefaults()
         registerSpacingDefaults()
+        registerKeyboardNavDefaults()
         UserDefaults.standard.register(defaults: [
             aspectWKey: 16.0, aspectHKey: 9.0, gapKey: 8.0, dragActivationKey: DragActivation.shift.rawValue,
             multiZoneModifierKey: MultiZoneModifier.control.rawValue, showAllScreensKey: false, useSystemColorsKey: true,
