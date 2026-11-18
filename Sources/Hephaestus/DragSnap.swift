@@ -26,7 +26,9 @@ final class DragSnapController {
     private var isWindowDrag = false
     private var toggled = false
 
-    private var overlayScreen: NSScreen?
+    /// Screens the overlay is currently built for, the screen under the cursor, and its highlighted zone.
+    private var overlayScreenIDs: [UInt32] = []
+    private var cursorScreen: NSScreen?
     private var currentZone: Zone?
 
     init(overlay: Overlay) { self.overlay = overlay }
@@ -109,22 +111,27 @@ final class DragSnapController {
             hideOverlay()
             return
         }
-        if overlayScreen !== screen {
-            overlay.showDrag(on: screen)
-            overlayScreen = screen
+        let screens = Prefs.showZonesOnAllScreens ? NSScreen.screens : [screen]
+        let ids = screens.map(\.displayID)
+        if ids != overlayScreenIDs {
+            overlay.showDrag(on: screens)
+            overlayScreenIDs = ids
+            cursorScreen = nil
             currentZone = nil
         }
         let zone = zone(at: NSEvent.mouseLocation, on: screen)
-        if zone != currentZone || currentZone == nil {
-            overlay.highlight(zone)
+        if cursorScreen !== screen || zone != currentZone {
+            overlay.highlight(zone.map { [$0] } ?? [], on: screen)
+            cursorScreen = screen
             currentZone = zone
         }
     }
 
     private func hideOverlay() {
-        guard overlayScreen != nil else { return }
+        guard !overlayScreenIDs.isEmpty else { return }
         overlay.hide()
-        overlayScreen = nil
+        overlayScreenIDs = []
+        cursorScreen = nil
         currentZone = nil
     }
 

@@ -12,12 +12,25 @@ enum Prefs {
     static let aspectHKey = "aspectH"
     static let gapKey = "gap"
     static let dragActivationKey = "dragActivation"
+    static let showAllScreensKey = "dragShowAllScreens"
+    static let useSystemColorsKey = "overlayUseSystemColors"
+    static let highlightColorKey = "overlayHighlightColor"
+    static let inactiveColorKey = "overlayInactiveColor"
+    static let borderColorKey = "overlayBorderColor"
+    static let numberColorKey = "overlayNumberColor"
+    static let opacityKey = "overlayOpacity"
+    static let showNumbersKey = "overlayShowNumbers"
 
     static func register() {
         UserDefaults.standard.register(defaults: [
             aspectWKey: 16.0, aspectHKey: 9.0, gapKey: 8.0, dragActivationKey: DragActivation.shift.rawValue,
+            showAllScreensKey: false, useSystemColorsKey: true,
+            highlightColorKey: "#0A84FF", inactiveColorKey: "#8E8E93", borderColorKey: "#0A84FF", numberColorKey: "#FFFFFF",
+            opacityKey: 0.5, showNumbersKey: true,
         ])
     }
+
+    static var showZonesOnAllScreens: Bool { UserDefaults.standard.bool(forKey: showAllScreensKey) }
 
     static var aspect: CGFloat {
         let w = UserDefaults.standard.double(forKey: aspectWKey)
