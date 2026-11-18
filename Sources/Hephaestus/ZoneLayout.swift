@@ -12,6 +12,7 @@ enum Prefs {
     static let aspectHKey = "aspectH"
     static let gapKey = "gap"
     static let dragActivationKey = "dragActivation"
+    static let multiZoneModifierKey = "multiZoneModifier"
     static let showAllScreensKey = "dragShowAllScreens"
     static let useSystemColorsKey = "overlayUseSystemColors"
     static let highlightColorKey = "overlayHighlightColor"
@@ -24,12 +25,15 @@ enum Prefs {
     static func register() {
         UserDefaults.standard.register(defaults: [
             aspectWKey: 16.0, aspectHKey: 9.0, gapKey: 8.0, dragActivationKey: DragActivation.shift.rawValue,
-            showAllScreensKey: false, useSystemColorsKey: true,
+            multiZoneModifierKey: MultiZoneModifier.control.rawValue, showAllScreensKey: false, useSystemColorsKey: true,
             highlightColorKey: "#0A84FF", inactiveColorKey: "#8E8E93", borderColorKey: "#0A84FF", numberColorKey: "#FFFFFF",
             opacityKey: 0.5, showNumbersKey: true,
         ])
     }
 
+    static var multiZoneModifier: MultiZoneModifier {
+        MultiZoneModifier(rawValue: UserDefaults.standard.string(forKey: multiZoneModifierKey) ?? "") ?? .control
+    }
     static var showZonesOnAllScreens: Bool { UserDefaults.standard.bool(forKey: showAllScreensKey) }
 
     static var aspect: CGFloat {
@@ -67,6 +71,40 @@ enum ZoneLayout {
             .center: r(frame.minX + sideW, centerW),
             .right: r(frame.minX + sideW + centerW, sideW),
         ]
+    }
+
+    /// How close (in points) the cursor must be to the shared edge of two adjacent zones to select both.
+    static let edgeThreshold: CGFloat = 24
+
+    /// Pure hit-test: the zone under `point` (the gap counts as part of the nearest zone), plus every
+    /// zone adjacent to it whose facing edge is within `edgeThreshold` of the point. Empty if outside all zones.
+    static func selection(at point: CGPoint, in zones: [Zone: CGRect], gap: CGFloat,
+                          edgeThreshold: CGFloat = ZoneLayout.edgeThreshold) -> Set<Zone> {
+        let slack = gap / 2
+        guard let (primary, pr) = zones.first(where: { $0.value.insetBy(dx: -slack, dy: -slack).contains(point) })
+        else { return [] }
+        var result: Set<Zone> = [primary]
+        let tolerance = gap + 1
+        for (zone, r) in zones where zone != primary {
+            let xOverlap = min(pr.maxX, r.maxX) - max(pr.minX, r.minX)
+            let yOverlap = min(pr.maxY, r.maxY) - max(pr.minY, r.minY)
+            let hGap = max(r.minX - pr.maxX, pr.minX - r.maxX)   // > 0 when separated horizontally
+            let vGap = max(r.minY - pr.maxY, pr.minY - r.maxY)
+            if yOverlap > 0, hGap >= 0, hGap <= tolerance {
+                let edge = r.minX >= pr.maxX ? (pr.maxX + r.minX) / 2 : (r.maxX + pr.minX) / 2
+                if abs(point.x - edge) <= edgeThreshold { result.insert(zone) }
+            } else if xOverlap > 0, vGap >= 0, vGap <= tolerance {
+                let edge = r.minY >= pr.maxY ? (pr.maxY + r.minY) / 2 : (r.maxY + pr.minY) / 2
+                if abs(point.y - edge) <= edgeThreshold { result.insert(zone) }
+            }
+        }
+        return result
+    }
+
+    /// Bounding rectangle of the given zones.
+    static func boundingRect(of selected: Set<Zone>, in zones: [Zone: CGRect]) -> CGRect? {
+        guard let first = selected.compactMap({ zones[$0] }).first else { return nil }
+        return selected.compactMap { zones[$0] }.reduce(first) { $0.union($1) }
     }
 
     /// Zones for one screen, in AppKit coordinates (origin bottom-left of primary screen).
