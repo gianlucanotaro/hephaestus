@@ -112,9 +112,9 @@ enum ZoneLayout {
     }
 
     /// The layout in effect for `screen`. Single entry point for "which layout applies here";
-    /// today every screen uses the globally active layout (per-monitor assignment plugs in here).
+    /// per-display assignment (by display UUID) with orientation defaults; see `ScreenLayoutStore`.
     static func layout(for screen: NSScreen) -> Layout {
-        LayoutStore.shared.active
+        ScreenLayoutStore.shared.layout(for: screen)
     }
 
     /// Zones for one screen, in AppKit coordinates (origin bottom-left of primary screen), by `ZoneIndex`.
