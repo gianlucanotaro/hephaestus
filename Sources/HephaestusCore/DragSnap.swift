@@ -50,9 +50,9 @@ final class DragSnapController {
     /// Screens the overlay is currently built for, the screen under the cursor, and its highlighted zone.
     private var overlayScreenIDs: [UInt32] = []
     private var cursorScreen: NSScreen?
-    private var currentSelection: Set<Zone> = []
+    private var currentSelection: Set<ZoneIndex> = []
     /// Zones collected while multi-zone mode is on; cleared when it turns off or the cursor changes screen.
-    private var accumulated: Set<Zone> = []
+    private var accumulated: Set<ZoneIndex> = []
 
     init(overlay: Overlay) { self.overlay = overlay }
 
@@ -132,7 +132,7 @@ final class DragSnapController {
 
     /// Zones that would receive the window if dropped now: the hovered zone(s), plus every zone
     /// visited so far while multi-zone mode is on.
-    private func selection(on screen: NSScreen) -> Set<Zone> {
+    private func selection(on screen: NSScreen) -> Set<ZoneIndex> {
         let hovered = ZoneLayout.selection(at: NSEvent.mouseLocation, in: ZoneLayout.zones(for: screen), gap: Prefs.gap)
         guard isMultiZone else { accumulated = []; return hovered }
         accumulated.formUnion(hovered)

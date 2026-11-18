@@ -25,7 +25,7 @@ struct SettingsView: View {
         Form {
             Text("Applied to every connected screen.").font(.footnote).foregroundStyle(.secondary)
             HStack {
-                Text("Center aspect")
+                Text("Center aspect (Ultrawide 3-way)")
                 TextField("W", value: $aspectW, format: .number).frame(width: 50)
                 Text(":")
                 TextField("H", value: $aspectH, format: .number).frame(width: 50)
@@ -60,7 +60,7 @@ struct SettingsView: View {
             }
             Toggle("Show zone numbers", isOn: $showNumbers)
             Divider()
-            Text("Side zones share the remaining width equally.\nHotkeys: ⌃⌥← left · ⌃⌥↑ center · ⌃⌥→ right · ⌃⌥Z preview")
+            Text("Choose the layout from the menu bar. In Ultrawide 3-way the side zones share the remaining width equally.\nHotkeys: ⌃⌥← first zone · ⌃⌥↑ middle zone · ⌃⌥→ last zone · ⌃⌥Z preview")
                 .font(.footnote).foregroundStyle(.secondary)
         }
         .padding(20)
