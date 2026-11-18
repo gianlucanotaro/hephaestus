@@ -3,7 +3,8 @@ import Carbon.HIToolbox
 import SwiftUI
 import UniformTypeIdentifiers
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    private let screenMenu = ScreenLayoutMenu()
     private var statusItem: NSStatusItem!
     private let overlay = Overlay()
     private let hotKeys = HotKeys()
@@ -16,6 +17,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = NSImage(systemSymbolName: "rectangle.split.3x1", accessibilityDescription: "Hephaestus")
+        screenMenu.onPick = { [weak self] in self?.overlay.show() }
+        ScreenLayoutStore.shared.start()
         rebuildMenu()
         dragSnap.start()
 
@@ -32,29 +35,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func rebuildMenu() {
         let menu = NSMenu()
+        menu.delegate = self
+        populate(menu)
+        statusItem.menu = menu
+    }
+
+    /// The "Layout" items depend on the screen under the cursor, so refresh right before the menu opens.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        if menu === statusItem.menu { populate(menu) }
+    }
+
+    private func populate(_ menu: NSMenu) {
+        menu.removeAllItems()
         for (screen, zones) in ZoneLayout.allZones() {
             menu.addItem(withTitle: "\(screen.localizedName) \(Int(screen.frame.width))×\(Int(screen.frame.height))  →  \(zones.map { "\(Int($0.width))" }.joined(separator: " / "))",
                          action: nil, keyEquivalent: "").isEnabled = false
         }
         menu.addItem(.separator())
         let store = LayoutStore.shared
-        let activeID = store.active.id
         let layoutsMenu = NSMenu()
-        for layout in store.all {
-            let item = NSMenuItem(title: layout.name, action: #selector(selectLayout(_:)), keyEquivalent: "")
-            item.representedObject = layout.id
-            item.target = self
-            item.state = layout.id == activeID ? .on : .off
-            layoutsMenu.addItem(item)
-        }
+        let current = screenMenu.addLayoutItems(to: layoutsMenu)
+        let currentLayout = current.map { ZoneLayout.layout(for: $0) } ?? store.active
         layoutsMenu.addItem(.separator())
         layoutsMenu.addItem(withTitle: "Import Layout…", action: #selector(importLayout), keyEquivalent: "").target = self
         layoutsMenu.addItem(withTitle: "Export Layout…", action: #selector(exportLayout), keyEquivalent: "").target = self
-        let layoutsItem = NSMenuItem(title: "Layout: \(store.active.name)", action: nil, keyEquivalent: "")
+        let layoutsItem = NSMenuItem(title: "Layout (\(current?.localizedName ?? "this screen")): \(currentLayout.name)", action: nil, keyEquivalent: "")
         layoutsItem.submenu = layoutsMenu
         menu.addItem(layoutsItem)
+        menu.addItem(screenMenu.defaultsItem())
         menu.addItem(.separator())
-        for index in store.active.zones.indices {
+        for index in currentLayout.zones.indices {
             let item = NSMenuItem(title: "Snap window → \(Layout.zoneTitle(index))", action: #selector(snap(_:)), keyEquivalent: "")
             item.representedObject = index
             item.target = self
@@ -65,19 +75,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Hephaestus", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        statusItem.menu = menu
     }
 
     @objc private func snap(_ sender: NSMenuItem) {
         // The menu steals focus briefly; wait for the previous app to become frontmost again.
         guard let zone = sender.representedObject as? ZoneIndex else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { WindowMover.snapFrontWindow(to: zone) }
-    }
-
-    @objc private func selectLayout(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? String else { return }
-        LayoutStore.shared.setActive(id: id)
-        overlay.show()
     }
 
     @objc private func importLayout() {
@@ -89,7 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let layout = try LayoutStore.shared.importLayout(from: url)
-            LayoutStore.shared.setActive(id: layout.id)
+            if let screen = screenMenu.screen ?? ZoneLayout.screenUnderCursor() { ZoneLayout.setLayout(id: layout.id, for: screen) }
             overlay.show()
         } catch {
             showError("Could not import layout", error)
@@ -98,7 +101,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func exportLayout() {
         NSApp.activate(ignoringOtherApps: true)
-        let layout = LayoutStore.shared.active
+        let layout = screenMenu.screen.map { ZoneLayout.layout(for: $0) } ?? LayoutStore.shared.active
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
         panel.nameFieldStringValue = "\(layout.name).json"
