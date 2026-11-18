@@ -39,6 +39,8 @@ enum MultiZoneModifier: String, CaseIterable {
 final class DragSnapController {
     private let overlay: Overlay
     private var monitor: Any?
+    private let wheelCycler = WheelLayoutCycler()
+    private let swallower = ScrollSwallower()
 
     private var tracked: AXUIElement?
     private var startFrame: CGRect?
@@ -62,7 +64,8 @@ final class DragSnapController {
 
     func start() {
         guard monitor == nil else { return }
-        let mask: NSEvent.EventTypeMask = [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .otherMouseDown, .flagsChanged]
+        swallower.handler = { [weak self] event in self?.wheel(event) ?? false }
+        let mask: NSEvent.EventTypeMask = [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .otherMouseDown, .flagsChanged, .scrollWheel]
         monitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in self?.handle(event) }
         // Layout hotkeys (#8) change the screen's layout mid-drag: rebuild the drag overlay and selection for it.
         NotificationCenter.default.addObserver(forName: ScreenLayoutStore.didChange, object: nil, queue: .main) { [weak self] _ in
@@ -87,8 +90,17 @@ final class DragSnapController {
             refresh()
         case .flagsChanged:
             if isWindowDrag { refresh() }
+        case .scrollWheel:
+            if !swallower.isEnabled { wheel(event) }   // with the tap active it already handled this event
         default: break
         }
+    }
+
+    /// Wheel cycling (#9): only while zones are visible during a window drag. Returns true to swallow the event.
+    @discardableResult
+    private func wheel(_ event: NSEvent) -> Bool {
+        guard Prefs.cycleLayoutsWithWheel, isWindowDrag, !overlayScreenIDs.isEmpty else { return false }
+        return wheelCycler.handle(event)
     }
 
     /// Mouse went down: remember the window under the cursor (if any).
@@ -119,6 +131,7 @@ final class DragSnapController {
                 isWindowDrag = true
                 unsnapIfTracked(window, start: start)
                 Self.isDragging = true
+                if Prefs.cycleLayoutsWithWheel { swallower.enable() }   // on failure events pass through unswallowed
             } else {
                 checksWithoutMove += 1
                 if resized || checksWithoutMove > 40 { tracked = nil }   // stop polling AX
@@ -216,6 +229,8 @@ final class DragSnapController {
         checksWithoutMove = 0
         isWindowDrag = false
         Self.isDragging = false
+        swallower.disable()
+        wheelCycler.reset()
         toggled = false
         multiToggled = false
     }

@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let rotation = RotationController()
     private lazy var zoneCycling = ZoneCycleController(hotKeys: hotKeys)
     private lazy var layoutHotkeys = LayoutHotkeyRegistrar(hotKeys: hotKeys, overlay: overlay)
+    private let layoutIndicator = LayoutIndicator()
     private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -29,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         WindowTracker.shared.start()
         rotation.start()
         NewWindowPlacement.shared.start()
+        layoutIndicator.start()
 
         keyboardNav.start()
         hotKeys.register(keyCode: kVK_ANSI_Z) { [weak self] in self?.overlay.toggle() }
