@@ -9,10 +9,11 @@ final class Overlay {
 
     func toggle() { isVisible ? hide() : show(autoHideAfter: nil) }
 
-    func show(autoHideAfter seconds: TimeInterval? = 1.5) {
+    /// `screen`: only preview that screen (used for the layout-switch flash); nil previews every screen.
+    func show(on screen: NSScreen? = nil, autoHideAfter seconds: TimeInterval? = 1.5) {
         hide()
         let palette: [NSColor] = [.systemBlue, .systemGreen, .systemOrange, .systemPurple, .systemPink, .systemTeal]
-        for (_, zones) in ZoneLayout.allZones() {
+        for (zoneScreen, zones) in ZoneLayout.allZones() where screen == nil || zoneScreen === screen {
             for (index, rect) in zones.enumerated() {
                 let w = makeWindow(rect)
                 w.contentView = ZoneView(look: .preview(color: palette[index % palette.count], label: Layout.zoneTitle(index)))

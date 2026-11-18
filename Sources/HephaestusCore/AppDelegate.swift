@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var dragSnap = DragSnapController(overlay: overlay)
     private let rotation = RotationController()
     private lazy var zoneCycling = ZoneCycleController(hotKeys: hotKeys)
+    private lazy var layoutHotkeys = LayoutHotkeyRegistrar(hotKeys: hotKeys, overlay: overlay)
     private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -32,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         keyboardNav.start()
         hotKeys.register(keyCode: kVK_ANSI_Z) { [weak self] in self?.overlay.toggle() }
         zoneCycling.start()
+        layoutHotkeys.start()
 
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
                                                object: nil, queue: .main) { [weak self] _ in self?.rebuildMenu() }

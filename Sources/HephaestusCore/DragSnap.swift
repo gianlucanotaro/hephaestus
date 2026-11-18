@@ -55,12 +55,21 @@ final class DragSnapController {
     /// Zones collected while multi-zone mode is on; cleared when it turns off or the cursor changes screen.
     private var accumulated: Set<ZoneIndex> = []
 
+    /// True while a window drag is in progress (used to skip the zone flash on layout switch).
+    private(set) static var isDragging = false
+
     init(overlay: Overlay) { self.overlay = overlay }
 
     func start() {
         guard monitor == nil else { return }
         let mask: NSEvent.EventTypeMask = [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .otherMouseDown, .flagsChanged]
         monitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in self?.handle(event) }
+        // Layout hotkeys (#8) change the screen's layout mid-drag: rebuild the drag overlay and selection for it.
+        NotificationCenter.default.addObserver(forName: ScreenLayoutStore.didChange, object: nil, queue: .main) { [weak self] _ in
+            guard let self, self.isWindowDrag, !self.overlayScreenIDs.isEmpty else { return }
+            self.overlayScreenIDs = []   // forces refresh() to call showDrag again
+            self.refresh()
+        }
     }
 
     private func handle(_ event: NSEvent) {
@@ -109,6 +118,7 @@ final class DragSnapController {
             if moved && !resized {
                 isWindowDrag = true
                 unsnapIfTracked(window, start: start)
+                Self.isDragging = true
             } else {
                 checksWithoutMove += 1
                 if resized || checksWithoutMove > 40 { tracked = nil }   // stop polling AX
@@ -205,6 +215,7 @@ final class DragSnapController {
         dragPreSnap = nil
         checksWithoutMove = 0
         isWindowDrag = false
+        Self.isDragging = false
         toggled = false
         multiToggled = false
     }
