@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let hotKeys = HotKeys()
     private lazy var keyboardNav = KeyboardNavController(hotKeys: hotKeys)
     private lazy var dragSnap = DragSnapController(overlay: overlay)
+    private let rotation = RotationController()
     private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -23,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         rebuildMenu()
         dragSnap.start()
         WindowTracker.shared.start()
+        rotation.start()
 
         keyboardNav.start()
         hotKeys.register(keyCode: kVK_ANSI_Z) { [weak self] in self?.overlay.toggle() }
