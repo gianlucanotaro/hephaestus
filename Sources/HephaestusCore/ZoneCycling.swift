@@ -14,7 +14,7 @@ struct CycleCandidate: Equatable {
     var title: String
 }
 
-enum CycleDirection { case next, previous }
+enum ZoneCycleDirection { case next, previous }
 
 enum ZoneCycling {
     /// Stable cycle order: snap order, then pid, then title, then id (so ties never reshuffle).
@@ -27,7 +27,7 @@ enum ZoneCycling {
     /// The candidate to activate after/before `current`, wrapping around. If `current` is not among the candidates
     /// it is treated as sitting before the first (next -> first) / after the last (previous -> last).
     /// Returns nil if there is nothing else to switch to.
-    static func nextWindow(in candidates: [CycleCandidate], current: Int, direction: CycleDirection) -> Int? {
+    static func nextWindow(in candidates: [CycleCandidate], current: Int, direction: ZoneCycleDirection) -> Int? {
         let list = ordered(candidates)
         guard list.contains(where: { $0.id != current }) else { return nil }
         guard let i = list.firstIndex(where: { $0.id == current }) else {
@@ -92,7 +92,7 @@ final class ZoneCycleController {
         ].compactMap { $0 }
     }
 
-    private func cycle(_ direction: CycleDirection) {
+    private func cycle(_ direction: ZoneCycleDirection) {
         guard WindowMover.ensureAccessibility(prompt: false),
               let app = NSWorkspace.shared.frontmostApplication,
               app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
