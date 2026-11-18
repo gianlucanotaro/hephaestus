@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         dragSnap.start()
         WindowTracker.shared.start()
         rotation.start()
+        NewWindowPlacement.shared.start()
 
         keyboardNav.start()
         hotKeys.register(keyCode: kVK_ANSI_Z) { [weak self] in self?.overlay.toggle() }
