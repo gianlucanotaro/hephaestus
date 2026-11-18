@@ -7,7 +7,7 @@ struct RotationSettingsView: View {
     @AppStorage(Prefs.rotationKeyCodeKey) private var keyCode = 7
 
     var body: some View {
-        Divider()
+        Text("Rotation").font(.headline)
         Toggle("Rotate windows across monitors", isOn: $enabled)
         if enabled {
             HStack {

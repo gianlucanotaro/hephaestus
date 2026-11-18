@@ -201,7 +201,6 @@ struct LayoutIndicatorSettingsView: View {
 
     var body: some View {
         Group {
-            Divider()
             Text("Layout switching").font(.headline)
             Toggle("Cycle layouts with the mouse wheel while dragging", isOn: $wheel)
             Text("Scrolls through hotkey-numbered layouts (or custom layouts) on the screen under the cursor.")

@@ -148,7 +148,7 @@ struct ZoneCycleSettings: View {
 
     var body: some View {
         Group {
-            Divider()
+            Text("Zone cycling").font(.headline)
             Toggle("Cycle windows within a zone", isOn: $enabled)
             if enabled {
                 HStack {

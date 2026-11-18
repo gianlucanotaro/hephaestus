@@ -22,8 +22,20 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        Form {
-            Text("Applied to every connected screen.").font(.footnote).foregroundStyle(.secondary)
+        ScrollView {
+            content.padding(20)
+        }
+        .frame(width: 460, height: 640)
+        .onChange(of: aspectW) { _ in onChange() }
+        .onChange(of: aspectH) { _ in onChange() }
+        .onChange(of: gap) { _ in onChange() }
+    }
+
+    /// One stack of sections. Dividers live HERE only; section views start with their own heading.
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Zones").font(.headline)
+            Text("Aspect ratio applies to Ultrawide 3-way on every screen; layouts are chosen per screen from the menu bar.").font(.footnote).foregroundStyle(.secondary)
             HStack {
                 Text("Center aspect (Ultrawide 3-way)")
                 TextField("W", value: $aspectW, format: .number).frame(width: 50)
@@ -47,6 +59,7 @@ struct SettingsView: View {
             Text("Off: only the screen under the cursor.").font(.footnote).foregroundStyle(.secondary)
             SpacingSettingsView()
             Divider()
+            Text("Appearance").font(.headline)
             Toggle("Use system colors (follows light/dark mode)", isOn: $useSystemColors)
             if !useSystemColors {
                 ColorPicker("Highlight", selection: colorBinding($highlightColor))
@@ -60,27 +73,25 @@ struct SettingsView: View {
                 Text("\(Int(opacity * 100))%").monospacedDigit().frame(width: 50, alignment: .trailing)
             }
             Toggle("Show zone numbers", isOn: $showNumbers)
-            WindowStateSettings()
-            ZoneCycleSettings()
-            Divider()
-            EligibilitySettingsView()
             Divider()
             KeyboardNavSettingsView()
             Divider()
-            RotationSettingsView()
+            EligibilitySettingsView()
+            Divider()
+            WindowStateSettings()
             Divider()
             NewWindowPlacementSettings()
             Divider()
+            ZoneCycleSettings()
+            Divider()
+            RotationSettingsView()
+            Divider()
             LayoutHotkeysSettingsView()
+            Divider()
             LayoutIndicatorSettingsView()
             Divider()
-            Text("Choose the layout from the menu bar. In Ultrawide 3-way the side zones share the remaining width equally.\nHotkeys: ⌃⌥← first zone · ⌃⌥↑ middle zone · ⌃⌥→ last zone · ⌃⌥Z preview")
+            Text("Choose the layout from the menu bar; the editors are under its Layout submenu. The full hotkey list is in the README.")
                 .font(.footnote).foregroundStyle(.secondary)
         }
-        .padding(20)
-        .frame(width: 420)
-        .onChange(of: aspectW) { _ in onChange() }
-        .onChange(of: aspectH) { _ in onChange() }
-        .onChange(of: gap) { _ in onChange() }
     }
 }

@@ -18,7 +18,7 @@ struct NewWindowPlacementSettings: View {
 
     var body: some View {
         Group {
-            Divider()
+            Text("New windows").font(.headline)
             Toggle("Move new windows to the app's last zone", isOn: $lastZone)
             Toggle("Otherwise move new windows to the active screen", isOn: $activeScreen)
             Text("Dialogs, sheets and popups are never moved. The active screen is the one under the cursor.")

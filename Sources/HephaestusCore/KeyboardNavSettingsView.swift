@@ -14,7 +14,8 @@ struct KeyboardNavSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Picker("Keyboard", selection: $mode) {
+            Text("Keyboard").font(.headline)
+            Picker("Keyboard mode", selection: $mode) {
                 ForEach(KeyboardNavMode.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
             }
             switch current {

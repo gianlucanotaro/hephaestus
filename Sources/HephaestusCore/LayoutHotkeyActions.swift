@@ -60,15 +60,16 @@ func applyLayout(number: Int, overlay: Overlay) {
     if Prefs.flashZonesOnSwitch && !DragSnapController.isDragging { overlay.show(on: screen, autoHideAfter: 1.0) }
 }
 
-/// Pure decision: edit the current layout when it is grid-editable, otherwise start a new grid layout (nil).
+/// Pure decision: edit the current layout when an editor can open it, otherwise start a new layout (nil).
 func editorTarget(for layout: Layout, canEdit: (Layout) -> Bool) -> Layout? {
     canEdit(layout) ? layout : nil
 }
 
-/// Opens the layout editor for the screen under the cursor. #7 will add `LayoutEditors.open(on:editing:)`;
-/// re-point this single function there.
+/// Opens the layout editor for the screen under the cursor, routed by `LayoutEditors` (grid or canvas editor for the
+/// screen's current layout); a layout no editor can open falls back to a new grid layout.
 func openEditorForCursorScreen() {
     guard let screen = ZoneLayout.screenUnderCursor() else { return }
-    let target = editorTarget(for: ZoneLayout.layout(for: screen), canEdit: GridEditor.canEdit)
-    GridEditor.open(on: screen, editing: target)
+    if let target = editorTarget(for: ZoneLayout.layout(for: screen), canEdit: LayoutEditors.canEdit),
+       LayoutEditors.open(on: screen, editing: target) { return }
+    GridEditor.open(on: screen)
 }

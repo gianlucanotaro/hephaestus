@@ -37,7 +37,6 @@ struct LayoutHotkeysSettingsView: View {
 
     var body: some View {
         Group {
-            Divider()
             Text("Layout hotkeys").font(.headline)
             HStack { Text("Modifiers + number"); modifierToggles($layoutMods) }
             if !HotkeyModifiers(carbon: layoutMods).isValid {

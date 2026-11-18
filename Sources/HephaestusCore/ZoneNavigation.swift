@@ -66,9 +66,20 @@ enum ZoneNavigation {
             < hypot(c.x - zones[$1].midX, c.y - zones[$1].midY) }
     }
 
-    /// The set of zones the window currently occupies. A near-exact match of one zone wins; otherwise, if
-    /// the zones the window mostly covers have a bounding rect matching the window (a multi-zone span),
-    /// that set; otherwise just the best-overlap zone. This is the swap point for a real window tracker (#14).
+    /// Current zones of a window: the tracker's zones when it has a record and the window still sits at the frame the
+    /// tracker applied (and the zones still exist), else the frame-overlap guess (`zoneSpan`).
+    static func currentZones(tracked: (zones: [ZoneIndex], snappedFrame: CGRect)?, frame: CGRect, in zones: [CGRect],
+                             tolerance: CGFloat = 16) -> Set<ZoneIndex> {
+        if let tracked, !tracked.zones.isEmpty, tracked.zones.allSatisfy(zones.indices.contains),
+           WindowStateMath.frameMatches(frame, tracked.snappedFrame) {
+            return Set(tracked.zones)
+        }
+        return zoneSpan(of: frame, in: zones, tolerance: tolerance)
+    }
+
+    /// The set of zones the window occupies judging by its frame alone. A near-exact match of one zone wins;
+    /// otherwise, if the zones the window mostly covers have a bounding rect matching the window (a multi-zone
+    /// span), that set; otherwise just the best-overlap zone. Fallback for windows the tracker does not know.
     static func zoneSpan(of frame: CGRect, in zones: [CGRect], tolerance: CGFloat = 16) -> Set<ZoneIndex> {
         guard let best = bestZone(for: frame, in: zones) else { return [] }
         if overlapRatio(frame, zones[best]) >= 0.9 { return [best] }

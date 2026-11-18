@@ -19,11 +19,8 @@ extension Prefs {
 
 extension NSScreen {
     /// Stable display UUID (survives reconnects, unlike `displayID`). Empty string if unavailable.
-    var windowTrackerUUID: String {
-        guard let u = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue(),
-              let s = CFUUIDCreateString(nil, u) else { return "" }
-        return s as String
-    }
+    /// Same value as `displayUUID` (#5); kept as the tracker's name for it so there is one UUID scheme.
+    var windowTrackerUUID: String { displayUUID }
 }
 
 /// A window the app has snapped. Rects are in AppKit space.
@@ -142,6 +139,10 @@ final class WindowTracker {
             self?.schedule(display: true)
         }
         nc.addObserver(forName: LayoutStore.didChange, object: nil, queue: .main) { [weak self] _ in
+            self?.schedule(display: false)
+        }
+        // A different layout assigned to a screen (menu, hotkey, wheel, editor, CLI) re-applies like a layout edit.
+        nc.addObserver(forName: ScreenLayoutStore.didChange, object: nil, queue: .main) { [weak self] _ in
             self?.schedule(display: false)
         }
         load()

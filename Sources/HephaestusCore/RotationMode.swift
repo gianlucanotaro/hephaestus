@@ -179,7 +179,8 @@ final class RotationController {
 
     /// Windows on ordered screens, and the plan for `direction`.
     private func makePlan(_ direction: RotationDirection) -> (windows: [RotatableWindow], screens: [NSScreen], moves: [RotationMove])? {
-        guard WindowMover.ensureAccessibility(prompt: false), NSScreen.screens.count > 1 else { return nil }
+        guard WindowMover.ensureAccessibility(prompt: false), NSScreen.screens.count > 1,
+              !Prefs.spanAllScreens else { return nil }   // spanning = one surface: nothing to rotate between
         let all = NSScreen.screens
         let order = RotationPlan.orderedScreenIndices(frames: all.map(\.frame))
         let screens = order.map { all[$0] }
@@ -187,10 +188,21 @@ final class RotationController {
         let windows = RotationWindows.collect()
         let inputs: [RotationWindow] = windows.enumerated().compactMap { i, w in
             guard let s = ZoneLayout.screen(containing: w.frame), let si = screens.firstIndex(of: s) else { return nil }
-            return RotationWindow(id: i, screen: si, zone: RotationPlan.bestZone(for: w.frame, in: zones[si]))
+            return RotationWindow(id: i, screen: si, zone: Self.currentZone(of: w, on: s, zones: zones[si]))
         }
         let moves = RotationPlan.plan(windows: inputs, zoneCounts: zones.map(\.count), direction: direction)
         return (windows, screens, moves)
+    }
+
+    /// The zone a window occupies: the tracker's record when still valid (same screen + layout, window unmoved),
+    /// else the best frame overlap (>= 50% of the window).
+    private static func currentZone(of w: RotatableWindow, on screen: NSScreen, zones: [CGRect]) -> ZoneIndex? {
+        if let rec = WindowTracker.shared.record(for: w.element), rec.screenUUID == screen.displayUUID,
+           rec.layoutID == ZoneLayout.layout(for: screen).id,
+           let z = rec.zones.first, zones.indices.contains(z), WindowStateMath.frameMatches(w.frame, rec.snappedFrame) {
+            return z
+        }
+        return RotationPlan.bestZone(for: w.frame, in: zones)
     }
 
     /// Destination rect (AppKit space) of a planned move.
@@ -207,7 +219,14 @@ final class RotationController {
         guard let p = makePlan(direction) else { return }
         for move in p.moves {
             let w = p.windows[move.id]
-            WindowMover.move(w.element, toAppKitRect: destinationRect(move, window: w, screens: p.screens))
+            let rect = destinationRect(move, window: w, screens: p.screens)
+            if let z = move.zone {
+                WindowMover.snap(w.element, toAppKitRect: rect, zones: [z], on: p.screens[move.toScreen], from: w.frame)
+            } else {
+                // Proportional move: no longer sitting in a zone, so the tracker must not keep an assignment.
+                WindowMover.move(w.element, toAppKitRect: rect)
+                WindowTracker.shared.unregister(w.element)
+            }
         }
     }
 
