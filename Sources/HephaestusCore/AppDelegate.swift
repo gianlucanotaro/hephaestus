@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var dragSnap = DragSnapController(overlay: overlay)
     private lazy var layoutHotkeys = LayoutHotkeyRegistrar(hotKeys: hotKeys, overlay: overlay)
     private var settingsWindow: NSWindow?
+    private lazy var cliServer = CLIServer(handler: CLIHandler(openSettings: { [weak self] in self?.openSettings() }).handle)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Prefs.register()
@@ -29,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hotKeys.register(keyCode: kVK_RightArrow) { WindowMover.snapFrontWindow(slot: .last) }
         hotKeys.register(keyCode: kVK_ANSI_Z) { [weak self] in self?.overlay.toggle() }
         layoutHotkeys.start()
+        cliServer.start()
 
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
                                                object: nil, queue: .main) { [weak self] _ in self?.rebuildMenu() }
