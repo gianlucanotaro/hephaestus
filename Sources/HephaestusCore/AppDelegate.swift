@@ -63,6 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         layoutsItem.submenu = layoutsMenu
         menu.addItem(layoutsItem)
         menu.addItem(screenMenu.defaultsItem())
+        menu.addItem(LayoutGapMenu.shared.menuItem())
         menu.addItem(.separator())
         for index in currentLayout.zones.indices {
             let item = NSMenuItem(title: "Snap window → \(Layout.zoneTitle(index))", action: #selector(snap(_:)), keyEquivalent: "")

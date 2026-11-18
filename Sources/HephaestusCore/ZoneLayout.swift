@@ -19,6 +19,7 @@ enum Prefs {
     static func register() {
         registerLayoutDefaults()
         registerEligibilityDefaults()
+        registerSpacingDefaults()
         UserDefaults.standard.register(defaults: [
             aspectWKey: 16.0, aspectHKey: 9.0, gapKey: 8.0, dragActivationKey: DragActivation.shift.rawValue,
             multiZoneModifierKey: MultiZoneModifier.control.rawValue, showAllScreensKey: false, useSystemColorsKey: true,
@@ -77,7 +78,8 @@ enum ZoneLayout {
     }
 
     /// How close (in points) the cursor must be to the shared edge of two adjacent zones to select both.
-    static let edgeThreshold: CGFloat = 24
+    /// Backed by `Prefs.edgeThreshold` (default 24).
+    static var edgeThreshold: CGFloat { Prefs.edgeThreshold }
 
     /// Pure hit-test: the zone under `point` (the gap counts as part of the nearest zone), plus every
     /// zone adjacent to it whose facing edge is within `edgeThreshold` of the point. Empty if outside all zones.
@@ -119,12 +121,13 @@ enum ZoneLayout {
 
     /// Zones for one screen, in AppKit coordinates (origin bottom-left of primary screen), by `ZoneIndex`.
     static func zones(for screen: NSScreen) -> [CGRect] {
-        zones(layout: layout(for: screen), in: screen.visibleFrame, centerAspect: Prefs.aspect, gap: Prefs.gap)
+        let layout = layout(for: screen)
+        return zones(layout: layout, in: surfaceFrame(for: screen), centerAspect: Prefs.aspect, gap: effectiveGap(for: layout))
     }
 
     /// Every connected screen with its zones.
     static func allZones() -> [(screen: NSScreen, zones: [CGRect])] {
-        NSScreen.screens.map { ($0, zones(for: $0)) }
+        surfaceScreens().map { ($0, zones(for: $0)) }
     }
 
     /// The screen containing most of an AppKit-space rect, else the main screen.
