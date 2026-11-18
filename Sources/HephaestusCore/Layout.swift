@@ -52,9 +52,11 @@ struct Layout: Codable, Equatable, Identifiable {
     var kind: LayoutKind
     var zones: [RelRect]
     var rule: TemplateRule?
+    /// Space around zones in points. Missing (nil) means "use the global `Prefs.gap`".
+    var gap: Double?
 
-    init(id: String, name: String, kind: LayoutKind, zones: [RelRect], rule: TemplateRule? = nil) {
-        self.id = id; self.name = name; self.kind = kind; self.zones = zones; self.rule = rule
+    init(id: String, name: String, kind: LayoutKind, zones: [RelRect], rule: TemplateRule? = nil, gap: Double? = nil) {
+        self.id = id; self.name = name; self.kind = kind; self.zones = zones; self.rule = rule; self.gap = gap
     }
 
     var isBuiltIn: Bool { LayoutTemplates.builtIn.contains { $0.id == id } }
@@ -62,7 +64,7 @@ struct Layout: Codable, Equatable, Identifiable {
     /// Usable layouts have a non-blank id/name and at least one valid zone.
     var isValid: Bool {
         !id.isEmpty && !name.trimmingCharacters(in: .whitespaces).isEmpty
-            && !zones.isEmpty && zones.allSatisfy(\.isValid)
+            && !zones.isEmpty && zones.allSatisfy(\.isValid) && (gap.map { $0.isFinite && $0 >= 0 } ?? true)
     }
 
     /// "Zone N" (1-based) — what menus and overlays call a zone.

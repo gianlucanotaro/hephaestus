@@ -45,6 +45,7 @@ struct SettingsView: View {
                 .font(.footnote).foregroundStyle(.secondary)
             Toggle("Show zones on all screens while dragging", isOn: $showAllScreens)
             Text("Off: only the screen under the cursor.").font(.footnote).foregroundStyle(.secondary)
+            SpacingSettingsView()
             Divider()
             Toggle("Use system colors (follows light/dark mode)", isOn: $useSystemColors)
             if !useSystemColors {

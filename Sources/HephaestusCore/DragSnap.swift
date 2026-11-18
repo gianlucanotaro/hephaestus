@@ -133,7 +133,8 @@ final class DragSnapController {
     /// Zones that would receive the window if dropped now: the hovered zone(s), plus every zone
     /// visited so far while multi-zone mode is on.
     private func selection(on screen: NSScreen) -> Set<ZoneIndex> {
-        let hovered = ZoneLayout.selection(at: NSEvent.mouseLocation, in: ZoneLayout.zones(for: screen), gap: Prefs.gap)
+        let hovered = ZoneLayout.selection(at: NSEvent.mouseLocation, in: ZoneLayout.zones(for: screen),
+                                         gap: ZoneLayout.effectiveGap(for: ZoneLayout.layout(for: screen)))
         guard isMultiZone else { accumulated = []; return hovered }
         accumulated.formUnion(hovered)
         return accumulated
@@ -153,7 +154,7 @@ final class DragSnapController {
             hideOverlay()
             return
         }
-        let screens = Prefs.showZonesOnAllScreens ? NSScreen.screens : [screen]
+        let screens = Prefs.showZonesOnAllScreens ? ZoneLayout.surfaceScreens() : [screen]
         let ids = screens.map(\.displayID)
         if ids != overlayScreenIDs {
             overlay.showDrag(on: screens)
@@ -180,7 +181,7 @@ final class DragSnapController {
     }
 
     private func screen(at point: CGPoint) -> NSScreen? {
-        NSScreen.screens.first { $0.frame.contains(point) }
+        ZoneLayout.surfaceScreen(at: point)
     }
 
     private func reset() {
