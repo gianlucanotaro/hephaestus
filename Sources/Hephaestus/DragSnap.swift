@@ -14,6 +14,26 @@ enum DragActivation: String, CaseIterable {
     }
 }
 
+/// Modifier key that, while held during a drag, extends the selection across several zones.
+enum MultiZoneModifier: String, CaseIterable {
+    case control, option, command
+
+    var title: String {
+        switch self {
+        case .control: return "Control"
+        case .option: return "Option"
+        case .command: return "Command"
+        }
+    }
+    var flag: NSEvent.ModifierFlags {
+        switch self {
+        case .control: return .control
+        case .option: return .option
+        case .command: return .command
+        }
+    }
+}
+
 /// Watches global mouse events, detects when another app's window is being dragged,
 /// shows the zones (per `DragActivation`) and snaps the window to the zone under the cursor on release.
 final class DragSnapController {
@@ -25,11 +45,14 @@ final class DragSnapController {
     private var checksWithoutMove = 0
     private var isWindowDrag = false
     private var toggled = false
+    private var multiToggled = false   // middle mouse button toggles multi-zone spanning
 
     /// Screens the overlay is currently built for, the screen under the cursor, and its highlighted zone.
     private var overlayScreenIDs: [UInt32] = []
     private var cursorScreen: NSScreen?
-    private var currentZone: Zone?
+    private var currentSelection: Set<Zone> = []
+    /// Zones collected while multi-zone mode is on; cleared when it turns off or the cursor changes screen.
+    private var accumulated: Set<Zone> = []
 
     init(overlay: Overlay) { self.overlay = overlay }
 
@@ -45,7 +68,13 @@ final class DragSnapController {
         case .leftMouseDragged: dragged()
         case .leftMouseUp: end()
         case .otherMouseDown:
-            if isWindowDrag, Prefs.dragActivation == .button { toggled.toggle(); refresh() }
+            guard isWindowDrag else { break }
+            if Prefs.dragActivation != .button, event.buttonNumber == 2 {
+                multiToggled.toggle()
+            } else if Prefs.dragActivation == .button {
+                toggled.toggle()
+            }
+            refresh()
         case .flagsChanged:
             if isWindowDrag { refresh() }
         default: break
@@ -90,11 +119,24 @@ final class DragSnapController {
     private func end() {
         defer { reset() }
         guard isWindowDrag, let window = tracked, isActive,
-              let screen = screen(at: NSEvent.mouseLocation),
-              let zone = zone(at: NSEvent.mouseLocation, on: screen),
-              let rect = ZoneLayout.zones(for: screen)[zone]
+              let screen = screen(at: NSEvent.mouseLocation)
         else { return }
+        let selected = selection(on: screen)
+        guard let rect = ZoneLayout.boundingRect(of: selected, in: ZoneLayout.zones(for: screen)) else { return }
         WindowMover.move(window, toAppKitRect: rect)
+    }
+
+    private var isMultiZone: Bool {
+        multiToggled || NSEvent.modifierFlags.contains(Prefs.multiZoneModifier.flag)
+    }
+
+    /// Zones that would receive the window if dropped now: the hovered zone(s), plus every zone
+    /// visited so far while multi-zone mode is on.
+    private func selection(on screen: NSScreen) -> Set<Zone> {
+        let hovered = ZoneLayout.selection(at: NSEvent.mouseLocation, in: ZoneLayout.zones(for: screen), gap: Prefs.gap)
+        guard isMultiZone else { accumulated = []; return hovered }
+        accumulated.formUnion(hovered)
+        return accumulated
     }
 
     private var isActive: Bool {
@@ -117,13 +159,14 @@ final class DragSnapController {
             overlay.showDrag(on: screens)
             overlayScreenIDs = ids
             cursorScreen = nil
-            currentZone = nil
+            currentSelection = []
         }
-        let zone = zone(at: NSEvent.mouseLocation, on: screen)
-        if cursorScreen !== screen || zone != currentZone {
-            overlay.highlight(zone.map { [$0] } ?? [], on: screen)
+        if cursorScreen !== screen { accumulated = [] }
+        let selected = selection(on: screen)
+        if cursorScreen !== screen || selected != currentSelection {
+            overlay.highlight(selected, on: screen)
             cursorScreen = screen
-            currentZone = zone
+            currentSelection = selected
         }
     }
 
@@ -132,17 +175,12 @@ final class DragSnapController {
         overlay.hide()
         overlayScreenIDs = []
         cursorScreen = nil
-        currentZone = nil
+        currentSelection = []
+        accumulated = []
     }
 
     private func screen(at point: CGPoint) -> NSScreen? {
         NSScreen.screens.first { $0.frame.contains(point) }
-    }
-
-    /// Zone under the cursor; the gap between zones counts as part of the nearest one.
-    private func zone(at point: CGPoint, on screen: NSScreen) -> Zone? {
-        let slack = Prefs.gap / 2
-        return ZoneLayout.zones(for: screen).first { $0.value.insetBy(dx: -slack, dy: -slack).contains(point) }?.key
     }
 
     private func reset() {
@@ -152,5 +190,6 @@ final class DragSnapController {
         checksWithoutMove = 0
         isWindowDrag = false
         toggled = false
+        multiToggled = false
     }
 }

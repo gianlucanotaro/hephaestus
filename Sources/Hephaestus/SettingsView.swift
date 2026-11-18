@@ -5,6 +5,7 @@ struct SettingsView: View {
     @AppStorage(Prefs.aspectHKey) private var aspectH = 9.0
     @AppStorage(Prefs.gapKey) private var gap = 8.0
     @AppStorage(Prefs.dragActivationKey) private var dragActivation = DragActivation.shift.rawValue
+    @AppStorage(Prefs.multiZoneModifierKey) private var multiZoneModifier = MultiZoneModifier.control.rawValue
     @AppStorage(Prefs.showAllScreensKey) private var showAllScreens = false
     @AppStorage(Prefs.useSystemColorsKey) private var useSystemColors = true
     @AppStorage(Prefs.highlightColorKey) private var highlightColor = "#0A84FF"
@@ -37,6 +38,11 @@ struct SettingsView: View {
             Picker("Drag to snap", selection: $dragActivation) {
                 ForEach(DragActivation.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
             }
+            Picker("Span multiple zones", selection: $multiZoneModifier) {
+                ForEach(MultiZoneModifier.allCases, id: \.rawValue) { Text("Hold \($0.title)").tag($0.rawValue) }
+            }
+            Text("Or drop near the edge between two zones. The middle mouse button also toggles spanning (not in mouse-button activation mode).")
+                .font(.footnote).foregroundStyle(.secondary)
             Toggle("Show zones on all screens while dragging", isOn: $showAllScreens)
             Text("Off: only the screen under the cursor.").font(.footnote).foregroundStyle(.secondary)
             Divider()
