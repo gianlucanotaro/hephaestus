@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let overlay = Overlay()
     private let hotKeys = HotKeys()
+    private lazy var dragSnap = DragSnapController(overlay: overlay)
     private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -15,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = NSImage(systemSymbolName: "rectangle.split.3x1", accessibilityDescription: "Hephaestus")
         rebuildMenu()
+        dragSnap.start()
 
         hotKeys.register(keyCode: kVK_LeftArrow) { WindowMover.snapFrontWindow(to: .left) }
         hotKeys.register(keyCode: kVK_UpArrow) { WindowMover.snapFrontWindow(to: .center) }

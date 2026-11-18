@@ -11,10 +11,11 @@ enum Prefs {
     static let aspectWKey = "aspectW"
     static let aspectHKey = "aspectH"
     static let gapKey = "gap"
+    static let dragActivationKey = "dragActivation"
 
     static func register() {
         UserDefaults.standard.register(defaults: [
-            aspectWKey: 16.0, aspectHKey: 9.0, gapKey: 8.0,
+            aspectWKey: 16.0, aspectHKey: 9.0, gapKey: 8.0, dragActivationKey: DragActivation.shift.rawValue,
         ])
     }
 
@@ -22,6 +23,9 @@ enum Prefs {
         let w = UserDefaults.standard.double(forKey: aspectWKey)
         let h = UserDefaults.standard.double(forKey: aspectHKey)
         return h > 0 && w > 0 ? CGFloat(w / h) : 16.0 / 9.0
+    }
+    static var dragActivation: DragActivation {
+        DragActivation(rawValue: UserDefaults.standard.string(forKey: dragActivationKey) ?? "") ?? .shift
     }
     static var gap: CGFloat { CGFloat(UserDefaults.standard.double(forKey: gapKey)) }
 }
