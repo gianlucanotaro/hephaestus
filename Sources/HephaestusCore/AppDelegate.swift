@@ -8,7 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let gridEditorMenu = GridEditorMenu()
     private var statusItem: NSStatusItem!
     private let overlay = Overlay()
-    private let hotKeys = HotKeys()
+    private let hotKeys = HotKeys.shared
     private lazy var keyboardNav = KeyboardNavController(hotKeys: hotKeys)
     private lazy var dragSnap = DragSnapController(overlay: overlay)
     private let rotation = RotationController()

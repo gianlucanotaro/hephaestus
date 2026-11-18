@@ -1,13 +1,18 @@
 import Carbon.HIToolbox
 
 /// Global hotkeys via Carbon (works without extra permissions).
-/// Defaults: ⌃⌥← left, ⌃⌥↑ center, ⌃⌥→ right, ⌃⌥Z toggle overlay.
+///
+/// There is exactly ONE instance, `HotKeys.shared`: each instance installs its own application event handler and has
+/// its own id space, so a second instance would swallow the first one's events (the first handler returns `noErr`
+/// for ids it does not know) and collide on ids. Every controller takes it as `hotKeys: HotKeys = .shared`.
 final class HotKeys {
+    static let shared = HotKeys()
+
     private var refs: [UInt32: EventHotKeyRef] = [:]
     private var handlers: [UInt32: () -> Void] = [:]
     private var nextID: UInt32 = 1
 
-    init() {
+    private init() {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         InstallEventHandler(GetApplicationEventTarget(), { _, event, userData in
             var hk = EventHotKeyID()

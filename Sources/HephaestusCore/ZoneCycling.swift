@@ -67,7 +67,7 @@ final class ZoneCycleController {
     private var ids: [UInt32] = []
     private var registeredModifiers = 0
 
-    init(hotKeys: HotKeys) { self.hotKeys = hotKeys }
+    init(hotKeys: HotKeys = .shared) { self.hotKeys = hotKeys }
 
     func start() {
         reconcile()
@@ -76,7 +76,6 @@ final class ZoneCycleController {
         }
     }
 
-    /// The ONLY place that touches `HotKeys` (adapt here if its register/unregister signatures change).
     private func reconcile() {
         let want = Prefs.zoneCycleEnabled
         let mods = Prefs.zoneCycleModifiers

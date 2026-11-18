@@ -1,8 +1,7 @@
 import AppKit
 import Carbon.HIToolbox
 
-// All global hotkey registration of issue #8 lives here, so reconciling with the HotKeys API changes of other
-// PRs (#30, #33) only touches this file.
+// All global hotkey registration of issue #8 lives here.
 
 /// Registers ⌃⌥⌘0-9 style layout hotkeys and the open-editor hotkey; re-registers when the prefs change.
 final class LayoutHotkeyRegistrar {
@@ -12,7 +11,7 @@ final class LayoutHotkeyRegistrar {
     private var signature = ""
     private var observer: NSObjectProtocol?
 
-    init(hotKeys: HotKeys, overlay: Overlay) {
+    init(hotKeys: HotKeys = .shared, overlay: Overlay) {
         self.hotKeys = hotKeys
         self.overlay = overlay
     }

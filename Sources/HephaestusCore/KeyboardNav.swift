@@ -38,7 +38,7 @@ final class KeyboardNavController {
     private var applied: KeyboardNavConfig?
 
     /// Shares the app's single `HotKeys` instance (Carbon handler + id space are per instance).
-    init(hotKeys: HotKeys) { self.hotKeys = hotKeys }
+    init(hotKeys: HotKeys = .shared) { self.hotKeys = hotKeys }
 
     func start() {
         apply()
