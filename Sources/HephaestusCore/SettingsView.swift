@@ -61,6 +61,7 @@ struct SettingsView: View {
             }
             Toggle("Show zone numbers", isOn: $showNumbers)
             WindowStateSettings()
+            ZoneCycleSettings()
             Divider()
             EligibilitySettingsView()
             Divider()

@@ -1,0 +1,167 @@
+import AppKit
+import ApplicationServices
+import Carbon.HIToolbox
+import SwiftUI
+
+// MARK: - Pure planning
+
+/// A window that can be cycled to. `id` is an opaque caller-chosen handle (e.g. index into the real window list).
+struct CycleCandidate: Equatable {
+    var id: Int
+    /// Position in the tracker's window list: tracker order is snap order (a window keeps its place when re-snapped).
+    var order: Int
+    var pid: Int32
+    var title: String
+}
+
+enum CycleDirection { case next, previous }
+
+enum ZoneCycling {
+    /// Stable cycle order: snap order, then pid, then title, then id (so ties never reshuffle).
+    static func ordered(_ candidates: [CycleCandidate]) -> [CycleCandidate] {
+        candidates.sorted {
+            ($0.order, $0.pid, $0.title, $0.id) < ($1.order, $1.pid, $1.title, $1.id)
+        }
+    }
+
+    /// The candidate to activate after/before `current`, wrapping around. If `current` is not among the candidates
+    /// it is treated as sitting before the first (next -> first) / after the last (previous -> last).
+    /// Returns nil if there is nothing else to switch to.
+    static func nextWindow(in candidates: [CycleCandidate], current: Int, direction: CycleDirection) -> Int? {
+        let list = ordered(candidates)
+        guard list.contains(where: { $0.id != current }) else { return nil }
+        guard let i = list.firstIndex(where: { $0.id == current }) else {
+            return (direction == .next ? list.first : list.last)?.id
+        }
+        let n = list.count
+        return list[(i + (direction == .next ? 1 : n - 1)) % n].id
+    }
+}
+
+// MARK: - Prefs
+
+extension Prefs {
+    static let zoneCycleEnabledKey = "zoneCycleEnabled"
+    static let zoneCycleModifiersKey = "zoneCycleModifiers"
+
+    static func registerZoneCycleDefaults() {
+        UserDefaults.standard.register(defaults: [
+            zoneCycleEnabledKey: true, zoneCycleModifiersKey: controlKey | optionKey,
+        ])
+    }
+    static var zoneCycleEnabled: Bool { UserDefaults.standard.bool(forKey: zoneCycleEnabledKey) }
+    /// Carbon modifier mask (`cmdKey | shiftKey | optionKey | controlKey`); falls back to ⌃⌥ if empty.
+    static var zoneCycleModifiers: Int {
+        let m = UserDefaults.standard.integer(forKey: zoneCycleModifiersKey)
+            & (cmdKey | shiftKey | optionKey | controlKey)
+        return m == 0 ? controlKey | optionKey : m
+    }
+}
+
+// MARK: - Controller
+
+/// Registers the next/previous hotkeys (PageDown / PageUp) and switches between windows tracked in the focused
+/// window's zone. MAIN THREAD ONLY.
+final class ZoneCycleController {
+    private let hotKeys: HotKeys
+    private var ids: [UInt32] = []
+    private var registeredModifiers = 0
+
+    init(hotKeys: HotKeys) { self.hotKeys = hotKeys }
+
+    func start() {
+        reconcile()
+        NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.reconcile()
+        }
+    }
+
+    /// The ONLY place that touches `HotKeys` (adapt here if its register/unregister signatures change).
+    private func reconcile() {
+        let want = Prefs.zoneCycleEnabled
+        let mods = Prefs.zoneCycleModifiers
+        if !ids.isEmpty, !want || mods != registeredModifiers {
+            ids.forEach { hotKeys.unregister($0) }
+            ids = []
+        }
+        guard want, ids.isEmpty else { return }
+        registeredModifiers = mods
+        ids = [
+            hotKeys.register(keyCode: kVK_PageDown, modifiers: mods) { [weak self] in self?.cycle(.next) },
+            hotKeys.register(keyCode: kVK_PageUp, modifiers: mods) { [weak self] in self?.cycle(.previous) },
+        ].compactMap { $0 }
+    }
+
+    private func cycle(_ direction: CycleDirection) {
+        guard WindowMover.ensureAccessibility(prompt: false),
+              let app = NSWorkspace.shared.frontmostApplication,
+              app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(AXUIElementCreateApplication(app.processIdentifier),
+                                            kAXFocusedWindowAttribute as CFString, &ref) == .success,
+              let focused = ref, CFGetTypeID(focused) == AXUIElementGetTypeID() else { NSSound.beep(); return }
+        let current = focused as! AXUIElement
+        let tracker = WindowTracker.shared
+        // A window spanning several zones cycles within its first zone.
+        guard let rec = tracker.record(for: current), let zone = rec.zones.first else { NSSound.beep(); return }
+
+        // Tracker list order is snap order; use it as the cycle order, and drop minimized windows.
+        let all = tracker.windows
+        let inZone = tracker.windows(inZone: zone, screenUUID: rec.screenUUID).filter { !Self.isMinimized($0.element) }
+        var cands: [CycleCandidate] = []
+        var currentID = -1
+        for (i, w) in inZone.enumerated() {
+            cands.append(CycleCandidate(id: i, order: all.firstIndex { CFEqual($0.element, w.element) } ?? i,
+                                        pid: w.pid, title: w.titleHint))
+            if CFEqual(w.element, current) { currentID = i }
+        }
+        guard let target = ZoneCycling.nextWindow(in: cands, current: currentID, direction: direction) else { return }
+        Self.activate(inZone[target])
+    }
+
+    private static func isMinimized(_ w: AXUIElement) -> Bool {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(w, kAXMinimizedAttribute as CFString, &ref) == .success else { return false }
+        return (ref as? Bool) ?? false
+    }
+
+    private static func activate(_ rec: TrackedWindow) {
+        AXUIElementPerformAction(rec.element, kAXRaiseAction as CFString)
+        AXUIElementSetAttributeValue(rec.element, kAXMainAttribute as CFString, kCFBooleanTrue)
+        AXUIElementSetAttributeValue(rec.element, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+        NSRunningApplication(processIdentifier: rec.pid)?.activate(options: [.activateIgnoringOtherApps])
+    }
+}
+
+// MARK: - Settings UI
+
+struct ZoneCycleSettings: View {
+    @AppStorage(Prefs.zoneCycleEnabledKey) private var enabled = true
+    @AppStorage(Prefs.zoneCycleModifiersKey) private var modifiers = controlKey | optionKey
+
+    private func bind(_ flag: Int) -> Binding<Bool> {
+        Binding(get: { modifiers & flag != 0 },
+                set: { on in
+                    let m = on ? modifiers | flag : modifiers & ~flag
+                    if m != 0 { modifiers = m }  // keep at least one modifier
+                })
+    }
+
+    var body: some View {
+        Group {
+            Divider()
+            Toggle("Cycle windows within a zone", isOn: $enabled)
+            if enabled {
+                HStack {
+                    Text("Modifiers")
+                    Toggle("⌃", isOn: bind(controlKey))
+                    Toggle("⌥", isOn: bind(optionKey))
+                    Toggle("⇧", isOn: bind(shiftKey))
+                    Toggle("⌘", isOn: bind(cmdKey))
+                }
+            }
+            Text("Modifiers + Page Down / Page Up: next / previous window snapped to the focused window's zone.")
+                .font(.footnote).foregroundStyle(.secondary)
+        }
+    }
+}
