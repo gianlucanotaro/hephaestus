@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ScreenLayoutStore.shared.start()
         rebuildMenu()
         dragSnap.start()
+        WindowTracker.shared.start()
 
         keyboardNav.start()
         hotKeys.register(keyCode: kVK_ANSI_Z) { [weak self] in self?.overlay.toggle() }

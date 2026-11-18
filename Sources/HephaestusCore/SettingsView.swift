@@ -60,6 +60,7 @@ struct SettingsView: View {
                 Text("\(Int(opacity * 100))%").monospacedDigit().frame(width: 50, alignment: .trailing)
             }
             Toggle("Show zone numbers", isOn: $showNumbers)
+            WindowStateSettings()
             Divider()
             EligibilitySettingsView()
             Divider()

@@ -42,6 +42,8 @@ enum WindowMover {
         let target = zones[index]
 
         move(window, toAppKitRect: target)
+        WindowTracker.shared.register(window: window, zones: [index], screen: screen,
+                                      currentFrame: ZoneLayout.fromAX(current), snappedFrame: target)
         return true
     }
 
