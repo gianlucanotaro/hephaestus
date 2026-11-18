@@ -44,6 +44,7 @@ final class DragSnapController {
     private var startFrame: CGRect?
     private var checksWithoutMove = 0
     private var isWindowDrag = false
+    private var dragPreSnap: CGRect?   // pre-snap frame (AppKit) of a tracked window being dragged out
     private var toggled = false
     private var multiToggled = false   // middle mouse button toggles multi-zone spanning
 
@@ -107,6 +108,7 @@ final class DragSnapController {
             let resized = abs(now.width - start.width) > 2 || abs(now.height - start.height) > 2
             if moved && !resized {
                 isWindowDrag = true
+                unsnapIfTracked(window, start: start)
             } else {
                 checksWithoutMove += 1
                 if resized || checksWithoutMove > 40 { tracked = nil }   // stop polling AX
@@ -124,6 +126,17 @@ final class DragSnapController {
         let selected = selection(on: screen)
         guard let rect = ZoneLayout.boundingRect(of: selected, in: ZoneLayout.zones(for: screen)) else { return }
         WindowMover.move(window, toAppKitRect: rect)
+        WindowTracker.shared.register(window: window, zones: selected, screen: screen,
+                                      currentFrame: dragPreSnap ?? startFrame.map(ZoneLayout.fromAX) ?? rect,
+                                      snappedFrame: rect)
+    }
+
+    /// A tracked (snapped) window started moving: forget its zone and, per setting, restore its pre-snap size.
+    private func unsnapIfTracked(_ window: AXUIElement, start: CGRect) {
+        let tracker = WindowTracker.shared
+        guard tracker.record(for: window) != nil else { return }
+        dragPreSnap = tracker.unsnap(window, startFrame: ZoneLayout.fromAX(start), cursor: NSEvent.mouseLocation,
+                                     restoreSize: Prefs.restoreSizeOnUnsnap)
     }
 
     private var isMultiZone: Bool {
@@ -187,6 +200,7 @@ final class DragSnapController {
         hideOverlay()
         tracked = nil
         startFrame = nil
+        dragPreSnap = nil
         checksWithoutMove = 0
         isWindowDrag = false
         toggled = false
