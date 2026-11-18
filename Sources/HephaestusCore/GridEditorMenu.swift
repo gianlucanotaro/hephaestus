@@ -38,13 +38,33 @@ final class GridEditorMenu: NSObject {
         new.isEnabled = screen != nil
         menu.addItem(new)
 
+        let newCanvas = NSMenuItem(title: "New Canvas Layout…", action: #selector(newCanvasLayout), keyEquivalent: "")
+        newCanvas.target = self
+        newCanvas.isEnabled = screen != nil
+        menu.addItem(newCanvas)
+
+        // The editor (grid or canvas) is chosen by LayoutEditors from the layout (#7).
         let layout = screen.map { ZoneLayout.layout(for: $0) }
-        let title: String
-        if let layout { title = layout.isBuiltIn ? "Copy “\(layout.name)” as New Grid…" : "Edit “\(layout.name)”…" } else { title = "Edit Layout…" }
-        let edit = NSMenuItem(title: title, action: #selector(editLayout), keyEquivalent: "")
+        let edit = NSMenuItem(title: layout.map(LayoutEditors.editTitle(for:)) ?? "Edit Layout…", action: #selector(editLayout), keyEquivalent: "")
         edit.target = self
-        edit.isEnabled = layout.map(GridEditor.canEdit) ?? false
+        edit.isEnabled = layout.map(LayoutEditors.canEdit) ?? false
         menu.addItem(edit)
+
+        if let layout, LayoutEditors.canCopyAsCanvas(layout) {
+            let copy = NSMenuItem(title: "Copy “\(layout.name)” as New Canvas…", action: #selector(copyAsCanvas), keyEquivalent: "")
+            copy.target = self
+            menu.addItem(copy)
+        }
+    }
+
+    @objc private func newCanvasLayout() {
+        guard let screen else { return }
+        CanvasEditor.open(on: screen)
+    }
+
+    @objc private func copyAsCanvas() {
+        guard let screen else { return }
+        CanvasEditor.open(on: screen, editing: ZoneLayout.layout(for: screen))
     }
 
     @objc private func newLayout() {
@@ -54,6 +74,6 @@ final class GridEditorMenu: NSObject {
 
     @objc private func editLayout() {
         guard let screen else { return }
-        GridEditor.open(on: screen, editing: ZoneLayout.layout(for: screen))
+        LayoutEditors.open(on: screen, editing: ZoneLayout.layout(for: screen))
     }
 }
