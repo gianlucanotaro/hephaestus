@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let overlay = Overlay()
     private let hotKeys = HotKeys()
     private lazy var dragSnap = DragSnapController(overlay: overlay)
+    private let rotation = RotationController()
     private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -21,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ScreenLayoutStore.shared.start()
         rebuildMenu()
         dragSnap.start()
+        rotation.start()
 
         hotKeys.register(keyCode: kVK_LeftArrow) { WindowMover.snapFrontWindow(slot: .first) }
         hotKeys.register(keyCode: kVK_UpArrow) { WindowMover.snapFrontWindow(slot: .middle) }
