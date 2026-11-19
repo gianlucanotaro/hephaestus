@@ -154,7 +154,7 @@ macOS sees one display per physical screen, so the menu bar, Dock, and Spaces ar
 
 Layouts are per display, not per Space or virtual desktop: macOS has no public API for Spaces. Windows on other Spaces are not reachable through Accessibility, so rotation skips them.
 
-Pinned windows are an approximation: macOS has no public API to set another app's window level, so Hephaestus re-raises a pinned window with `AXRaise` (on app and focus changes, plus a 1 s safety check) without activating its app. It can flicker briefly, cannot sit above fullscreen apps, the menu bar, system UI or other apps' floating panels, and some apps ignore the raise. Pins are forgotten when the app quits or the window closes.
+Pinned windows are an approximation: macOS has no public API to set another app's window level, so Hephaestus re-raises a pinned window (on app and focus changes, plus a 1 s safety check). A plain `AXRaise` of a window from another app is ignored by macOS, so after it Hephaestus checks the window order and, if the window is still covered, briefly makes the pinned app frontmost and then gives focus back to the app you were in. That is the setting "Force pinned windows to the front" (on by default; turn it off to use only the gentle raise). It flickers, a key pressed in that instant may go to the wrong app, and it cannot sit above fullscreen apps, the menu bar, system UI or other apps' floating panels. To debug: `defaults write dev.rsdf.hephaestus pinDebug -bool true`, then `log stream --predicate 'eventMessage CONTAINS "Pin"'`. Pins are forgotten when the app quits or the window closes.
 
 ## Development
 

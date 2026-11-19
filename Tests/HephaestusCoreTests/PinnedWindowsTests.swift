@@ -137,3 +137,39 @@ import Testing
         #expect(ShortcutStore.entries(defaults: d).first { $0.id == .pinWindow }?.active == false)
     }
 }
+
+@Suite struct PinForceTests {
+    @Test func forceDecision() {
+        func f(_ e: Bool = true, _ o: Bool = true, _ p: Bool = false, _ s: Bool = false, _ m: Bool = false) -> Bool {
+            PinForce.shouldForce(enabled: e, stillObscured: o, pinnedAppIsFrontmost: p, frontmostIsSelf: s, mouseButtonDown: m)
+        }
+        #expect(f())
+        #expect(!f(false))
+        #expect(!f(true, false))
+        #expect(!f(true, true, true))
+        #expect(!f(true, true, false, true))
+        #expect(!f(true, true, false, false, true))
+    }
+
+    @Test func forceGateBacksOffAfterFailures() {
+        var g = RaiseGate()
+        let a = g.allowForce(key: 1, now: 100)
+        let tooSoon = g.allowForce(key: 1, now: 100.5)
+        #expect(a && !tooSoon)
+        g.recordForce(key: 1, succeeded: false)
+        #expect(g.forceDelay(key: 1) == 3.0)
+        let early = g.allowForce(key: 1, now: 102)
+        let later = g.allowForce(key: 1, now: 103.1)
+        #expect(!early && later)
+        g.recordForce(key: 1, succeeded: true)
+        #expect(g.forceDelay(key: 1) == 1.5)
+        for _ in 0..<10 { g.recordForce(key: 2, succeeded: false) }
+        #expect(g.forceDelay(key: 2) == 30)
+    }
+
+    @Test func forceCountsAsEcho() {
+        var g = RaiseGate()
+        _ = g.allowForce(key: 1, now: 50)
+        #expect(g.isEcho(now: 50.1))
+    }
+}

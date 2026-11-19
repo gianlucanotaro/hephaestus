@@ -114,7 +114,40 @@ struct RaiseGate {
         return now - t < echoWindow
     }
 
-    mutating func forget(key: Int) { lastRaise[key] = nil }
+    mutating func forget(key: Int) { lastRaise[key] = nil; lastForce[key] = nil; forceFailures[key] = nil }
+
+    // MARK: Force raise (focus-switching fallback)
+
+    var forceInterval: TimeInterval = 1.5
+    var maxForceInterval: TimeInterval = 30
+    private var lastForce: [Int: TimeInterval] = [:]
+    private var forceFailures: [Int: Int] = [:]
+
+    /// Minimum wait before the next force for `key`: doubles with every force that did not help (capped), so a pin
+    /// that cannot be kept on top (an app that ignores it, a fight with another pin) backs off instead of flickering.
+    func forceDelay(key: Int) -> TimeInterval {
+        min(forceInterval * pow(2, Double(forceFailures[key] ?? 0)), maxForceInterval)
+    }
+
+    /// Returns true (and records it, also counting as our own activity for `isEcho`) when `key` may be forced now.
+    mutating func allowForce(key: Int, now: TimeInterval) -> Bool {
+        if let t = lastForce[key], now - t < forceDelay(key: key) { return false }
+        lastForce[key] = now
+        lastAny = now
+        return true
+    }
+
+    mutating func recordForce(key: Int, succeeded: Bool) {
+        forceFailures[key] = succeeded ? nil : (forceFailures[key] ?? 0) + 1
+    }
+}
+
+enum PinForce {
+    /// Whether to fall back to the focus-switching raise. Pure; the caller supplies the facts.
+    static func shouldForce(enabled: Bool, stillObscured: Bool, pinnedAppIsFrontmost: Bool,
+                            frontmostIsSelf: Bool, mouseButtonDown: Bool) -> Bool {
+        enabled && stillObscured && !pinnedAppIsFrontmost && !frontmostIsSelf && !mouseButtonDown
+    }
 }
 
 enum PinMenuLogic {

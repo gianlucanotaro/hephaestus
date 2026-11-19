@@ -8,19 +8,26 @@ import ApplicationServices
 // whenever something may have covered it. KNOWN LIMITS:
 //   - it can flicker briefly (the window is covered, then raised on the next event or poll tick, at most ~1 s later);
 //   - it cannot sit above fullscreen apps, the menu bar, system UI or other apps' floating-level panels;
-//   - `AXRaise` without activating the app may be ignored by some apps; then nothing happens (we never activate
-//     the app or move focus, so typing keeps going to the app the user chose);
+//   - a plain `AXRaise` of a window of a NON-frontmost app is ignored by macOS (it only reorders within the app).
+//     So after the gentle raise we verify the z-order and, if the pin is still covered and "force" is on, briefly
+//     make the pinned app frontmost (kAXFrontmostAttribute), raise the window, then give focus back to the app
+//     and window the user was in. This flickers and may cost a keystroke typed in that instant;
 //   - pins are NOT persisted: AX elements cannot be saved reliably, so pins are dropped on quit/relaunch.
 
 extension Prefs {
     static let pinnedWindowsEnabledKey = "pinnedWindowsEnabled"
+    static let pinForceKey = "pinnedWindowsForce"
+    /// Read-only debug switch (not registered, no UI): `defaults write dev.rsdf.hephaestus pinDebug -bool true`.
+    static let pinDebugKey = "pinDebug"
     static let pinHotkeyKeyCodeKey = "pinHotkeyKeyCode"
     static let pinHotkeyModifiersKey = "pinHotkeyModifiers"
 
     static func registerPinnedWindowsDefaults() {
-        UserDefaults.standard.register(defaults: [pinnedWindowsEnabledKey: true])
+        UserDefaults.standard.register(defaults: [pinnedWindowsEnabledKey: true, pinForceKey: true])
     }
     static var pinnedWindowsEnabled: Bool { UserDefaults.standard.bool(forKey: pinnedWindowsEnabledKey) }
+    static var pinForce: Bool { UserDefaults.standard.bool(forKey: pinForceKey) }
+    static var pinDebug: Bool { UserDefaults.standard.bool(forKey: pinDebugKey) }
 }
 
 struct PinnedWindow {
@@ -60,7 +67,8 @@ final class PinnedWindows {
         started = true
         let ws = NSWorkspace.shared.notificationCenter
         ws.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.scheduleCheck()
+            guard let self, !self.gate.isEcho(now: Self.now) else { return }   // our own force-raise activations
+            self.scheduleCheck()
         }
         ws.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] note in
             guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
@@ -89,18 +97,30 @@ final class PinnedWindows {
     static func frontmostFocusedWindow() -> AXUIElement? {
         guard AXIsProcessTrusted(), let app = NSWorkspace.shared.frontmostApplication,
               app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return nil }
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(AXUIElementCreateApplication(app.processIdentifier),
-                                            kAXFocusedWindowAttribute as CFString, &ref) == .success,
-              let w = ref, CFGetTypeID(w) == AXUIElementGetTypeID() else { return nil }
-        return (w as! AXUIElement)
+        return focusedWindow(pid: app.processIdentifier)
+    }
+
+    /// Focused window of an app, falling back to its main window (some apps report only one of the two).
+    static func focusedWindow(pid: pid_t) -> AXUIElement? {
+        let axApp = AXUIElementCreateApplication(pid)
+        for attr in [kAXFocusedWindowAttribute, kAXMainWindowAttribute] {
+            var ref: CFTypeRef?
+            if AXUIElementCopyAttributeValue(axApp, attr as CFString, &ref) == .success,
+               let w = ref, CFGetTypeID(w) == AXUIElementGetTypeID() { return (w as! AXUIElement) }
+        }
+        return nil
     }
 
     /// Hotkey / menu entry point.
-    func toggleFrontmostWindow() {
-        guard Prefs.pinnedWindowsEnabled, let window = Self.frontmostFocusedWindow(), Self.isPinnable(window) || isPinned(window)
-        else { NSSound.beep(); return }
+    func toggleFrontmostWindow(window preCaptured: AXUIElement? = nil) {
+        guard Prefs.pinnedWindowsEnabled, let window = preCaptured ?? Self.frontmostFocusedWindow(),
+              Self.isPinnable(window) || isPinned(window)
+        else { Self.log("toggle refused: no focused pinnable window (captured: \(preCaptured != nil))"); NSSound.beep(); return }
         toggle(window)
+    }
+
+    static func log(_ message: @autoclosure () -> String) {
+        if Prefs.pinDebug { NSLog("Pin: %@", message()) }
     }
 
     func toggle(_ window: AXUIElement) {
@@ -109,7 +129,9 @@ final class PinnedWindows {
         let app = NSRunningApplication(processIdentifier: pid)
         let pin = PinnedWindow(token: nextToken, element: window, pid: pid, appName: app?.localizedName ?? "App",
                                bundleID: app?.bundleIdentifier, title: Self.title(of: window))
-        if list.toggle(pin, matches: { CFEqual($0.element, window) }) {
+        let pinnedNow = list.toggle(pin, matches: { CFEqual($0.element, window) })
+        Self.log("toggled \(pinnedNow ? "PIN" : "UNPIN"): \(pin.appName) (pid \(pid)) \"\(pin.title)\"")
+        if pinnedNow {
             nextToken += 1
             attach(pid: pid, window: window)
             scheduleCheck()
@@ -214,6 +236,76 @@ final class PinnedWindows {
 
     private func check() {
         guard Prefs.pinnedWindowsEnabled, !list.items.isEmpty, AXIsProcessTrusted() else { return }
+        let keys = obscuredKeys()
+        var raised = false
+        for key in keys {
+            guard let pin = list.items.first(where: { $0.token == key }), gate.allowRaise(key: key, now: Self.now) else { continue }
+            // Gentle raise: no activation, no focus change.
+            let result = AXUIElementPerformAction(pin.element, kAXRaiseAction as CFString)
+            Self.log("obscured: \(pin.appName) \"\(pin.title)\"; AXRaise -> \(result.rawValue)")
+            if result == .invalidUIElement { removeAll(where: { $0.token == key }) } else { raised = true }
+        }
+        if raised, Prefs.pinForce || Prefs.pinDebug, !verifyScheduled {
+            verifyScheduled = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+                self?.verifyScheduled = false
+                self?.verifyAndForce()
+            }
+        }
+    }
+
+    private var verifyScheduled = false
+
+    /// Re-reads the z-order after the gentle raise; pins still covered get the force raise (when enabled).
+    private func verifyAndForce() {
+        for key in obscuredKeys() {
+            guard let pin = list.items.first(where: { $0.token == key }) else { continue }
+            let front = NSWorkspace.shared.frontmostApplication
+            let force = PinForce.shouldForce(
+                enabled: Prefs.pinForce, stillObscured: true,
+                pinnedAppIsFrontmost: front?.processIdentifier == pin.pid,
+                frontmostIsSelf: front?.processIdentifier == ProcessInfo.processInfo.processIdentifier,
+                mouseButtonDown: NSEvent.pressedMouseButtons != 0)
+            Self.log("still obscured after AXRaise: \(pin.appName); force=\(force) (enabled \(Prefs.pinForce), frontmost \(front?.localizedName ?? "?"), mouse \(NSEvent.pressedMouseButtons))")
+            guard force, gate.allowForce(key: key, now: Self.now) else { continue }
+            forceRaise(pin, previous: front)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                guard let self else { return }
+                let ok = !self.obscuredKeys().contains(key)
+                self.gate.recordForce(key: key, succeeded: ok)
+                Self.log("after force: \(pin.appName) \(ok ? "on top" : "STILL obscured (backing off)")")
+            }
+        }
+    }
+
+    /// Brings the pinned app/window forward, then hands focus back to the app and window the user was in.
+    private func forceRaise(_ pin: PinnedWindow, previous: NSRunningApplication?) {
+        let prevWindow = previous.flatMap { Self.focusedWindow(pid: $0.processIdentifier) }
+        let axPinned = AXUIElementCreateApplication(pin.pid)
+        let r1 = AXUIElementSetAttributeValue(axPinned, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+        if r1 != .success { NSRunningApplication(processIdentifier: pin.pid)?.activate(options: []) }
+        let r2 = AXUIElementPerformAction(pin.element, kAXRaiseAction as CFString)
+        let r3 = AXUIElementSetAttributeValue(pin.element, kAXMainAttribute as CFString, kCFBooleanTrue)
+        Self.log("force: frontmost(pinned) -> \(r1.rawValue), AXRaise -> \(r2.rawValue), main -> \(r3.rawValue)")
+        guard let previous, previous.processIdentifier != pin.pid, !previous.isTerminated else { return }
+        // Give the window server a moment to order the pinned window, then restore the user's app and window.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            let axPrev = AXUIElementCreateApplication(previous.processIdentifier)
+            let b1 = AXUIElementSetAttributeValue(axPrev, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+            if b1 != .success { previous.activate(options: []) }
+            var b2 = AXError.success, b3 = AXError.success
+            if let w = prevWindow {
+                b2 = AXUIElementSetAttributeValue(w, kAXMainAttribute as CFString, kCFBooleanTrue)
+                b3 = AXUIElementSetAttributeValue(w, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+            }
+            // Re-assert the pinned window's place once more now that focus is back.
+            let again = AXUIElementPerformAction(pin.element, kAXRaiseAction as CFString)
+            Self.log("restore \(previous.localizedName ?? "?"): frontmost -> \(b1.rawValue), main -> \(b2.rawValue), focused -> \(b3.rawValue); re-raise -> \(again.rawValue)")
+        }
+    }
+
+    /// Tokens of pinned windows currently covered by another window (also unpins dead ones).
+    private func obscuredKeys() -> [Int] {
         var targets: [PinTarget] = []
         var dead: [Int] = []
         for pin in list.items {
@@ -224,15 +316,9 @@ final class PinnedWindows {
             }
         }
         if !dead.isEmpty { removeAll(where: { dead.contains($0.token) }) }
-        guard !targets.isEmpty else { return }
-        let keys = PinRaise.windowsToRaise(pinned: targets, windows: Self.onScreenWindows(),
-                                           ignoringPid: ProcessInfo.processInfo.processIdentifier)
-        for key in keys {
-            guard let pin = list.items.first(where: { $0.token == key }), gate.allowRaise(key: key, now: Self.now) else { continue }
-            // Deliberately NO NSRunningApplication.activate and no kAXFocused change: never steal focus.
-            let result = AXUIElementPerformAction(pin.element, kAXRaiseAction as CFString)
-            if result == .invalidUIElement { removeAll(where: { $0.token == key }) }
-        }
+        guard !targets.isEmpty else { return [] }
+        return PinRaise.windowsToRaise(pinned: targets, windows: Self.onScreenWindows(),
+                                       ignoringPid: ProcessInfo.processInfo.processIdentifier)
     }
 
     private enum FrameRead { case frame(CGRect), gone, unavailable }
@@ -300,10 +386,16 @@ final class PinHotkeyController {
 
 /// The "Pin Window on Top" item and the "Pinned Windows" submenu in the menu bar menu.
 final class PinMenu: NSObject {
+    /// The window that was focused when the menu was built. The menu opens without activating Hephaestus, so this is
+    /// the user's window; the click handler uses it instead of re-querying after the menu closed.
+    private var captured: AXUIElement?
+
     func addItems(to menu: NSMenu) {
         let pins = PinnedWindows.shared
         let enabled = Prefs.pinnedWindowsEnabled
         let focused = enabled ? PinnedWindows.frontmostFocusedWindow() : nil
+        captured = focused
+        PinnedWindows.log("menu built; focused window: \(focused != nil ? "found" : "none"), frontmost: \(NSWorkspace.shared.frontmostApplication?.localizedName ?? "?")")
         let state: Bool? = focused.flatMap { w in pins.isPinned(w) ? true : (PinnedWindows.isPinnable(w) ? false : nil) }
         let toggle = PinMenuLogic.toggleItem(isPinned: state, featureEnabled: enabled)
         let item = NSMenuItem(title: toggle.title, action: #selector(togglePin), keyEquivalent: "")
@@ -329,7 +421,8 @@ final class PinMenu: NSObject {
 
     @objc private func togglePin() {
         // The menu steals focus briefly; wait for the previous app to become frontmost again (same as snap).
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { PinnedWindows.shared.toggleFrontmostWindow() }
+        let window = captured
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { PinnedWindows.shared.toggleFrontmostWindow(window: window) }
     }
 
     @objc private func unpin(_ sender: NSMenuItem) {
