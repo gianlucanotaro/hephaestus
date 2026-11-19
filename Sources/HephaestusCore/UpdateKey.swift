@@ -6,7 +6,7 @@ import Foundation
 /// printed public key between the quotes below, and keep the private key file OUT of the repository.
 /// While the string is empty, updates are disabled. release.sh reads this line with sed, so keep its shape.
 enum UpdateKey {
-    static let publicKeyBase64 = ""
+    static let publicKeyBase64 = "Y+XLHmGG0CvCChaXNkGiww1cdTvyOY+5dQQY1jR/FLw="
 
     static var isConfigured: Bool { publicKey(from: publicKeyBase64) != nil }
 
