@@ -39,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         zoneCycling.start()
         layoutHotkeys.start()
         cliServer.start()
+        StackHoverController.shared.start()
 
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
                                                object: nil, queue: .main) { [weak self] _ in self?.rebuildMenu() }
