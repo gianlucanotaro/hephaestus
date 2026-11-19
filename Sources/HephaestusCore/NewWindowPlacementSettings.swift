@@ -22,7 +22,7 @@ struct NewWindowPlacementSettings: View {
             Toggle("Move new windows to the app's last zone", isOn: $lastZone)
             Toggle("Otherwise move new windows to the active screen", isOn: $activeScreen)
             Text("Dialogs, sheets and popups are never moved. The active screen is the one under the cursor.")
-                .font(.footnote).foregroundStyle(.secondary)
+                .settingsHint()
         }
     }
 }

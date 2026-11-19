@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// The settings window: one tab per area. Each tab is a plain stack of the per-feature sections; section views start
-/// with their own heading and dividers live only here. Every setting appears in exactly one tab (see `SettingsCatalog`).
+/// The settings window: one tab per area. Each tab is a grouped `Form` (native cards, labels and controls aligned in
+/// columns) made of `Section`s, one per feature; section views start with their own heading. Every setting appears in
+/// exactly one tab (see `SettingsCatalog`).
 struct SettingsView: View {
     var onChange: () -> Void
 
@@ -18,19 +19,17 @@ struct SettingsView: View {
     }
 
     private func tab<V: View>(_ content: V) -> some View {
-        ScrollView {
-            content.frame(maxWidth: .infinity, alignment: .leading).padding(20)
-        }
+        Form { content }.formStyle(.grouped)
     }
 }
 
-private struct ActivationTab: View {
+struct ActivationTab: View {
     @AppStorage(Prefs.dragActivationKey) private var dragActivation = DragActivation.shift.rawValue
     @AppStorage(Prefs.multiZoneModifierKey) private var multiZoneModifier = MultiZoneModifier.control.rawValue
     @AppStorage(Prefs.showAllScreensKey) private var showAllScreens = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        Section {
             Text("Dragging").font(.headline)
             Picker("Drag to snap", selection: $dragActivation) {
                 ForEach(DragActivation.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
@@ -39,32 +38,32 @@ private struct ActivationTab: View {
                 ForEach(MultiZoneModifier.allCases, id: \.rawValue) { Text("Hold \($0.title)").tag($0.rawValue) }
             }
             Text("Or drop near the edge between two zones. The middle mouse button also toggles spanning (not in mouse-button activation mode).")
-                .font(.footnote).foregroundStyle(.secondary)
+                .settingsHint()
             EdgeThresholdSetting()
             Toggle("Show zones on all screens while dragging", isOn: $showAllScreens)
-            Text("Off: only the screen under the cursor.").font(.footnote).foregroundStyle(.secondary)
-            Divider()
-            WheelCycleSetting()
+            Text("Off: only the screen under the cursor.").settingsHint()
         }
+        Section { WheelCycleSetting() }
     }
 }
 
-private struct LayoutsTab: View {
+struct LayoutsTab: View {
     @AppStorage(Prefs.aspectWKey) private var aspectW = 16.0
     @AppStorage(Prefs.aspectHKey) private var aspectH = 9.0
     @AppStorage(Prefs.gapKey) private var gap = 8.0
     var onChange: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ScreenLayoutsSettingsView()
-            Divider()
+        Section { ScreenLayoutsSettingsView() }
+        Section {
             Text("Zones").font(.headline)
-            HStack {
-                Text("Center aspect (Ultrawide 3-way)")
-                TextField("W", value: $aspectW, format: .number).frame(width: 50)
-                Text(":")
-                TextField("H", value: $aspectH, format: .number).frame(width: 50)
+            LabeledContent("Center aspect (Ultrawide 3-way)") {
+                HStack(spacing: 6) {
+                    TextField("W", value: $aspectW, format: .number).frame(width: 48).multilineTextAlignment(.trailing)
+                    Text(":")
+                    TextField("H", value: $aspectH, format: .number).frame(width: 48)
+                }
+                .labelsHidden()
             }
             HStack {
                 Text("Default gap")
@@ -73,34 +72,26 @@ private struct LayoutsTab: View {
             }
             LayoutGapSettingsView()
             SpanScreensSetting()
-            Divider()
-            LayoutHotkeysSettingsView()
-            Divider()
-            LayoutEditorButtons()
         }
         .onChange(of: aspectW) { _ in onChange() }
         .onChange(of: aspectH) { _ in onChange() }
         .onChange(of: gap) { _ in onChange() }
+        Section { LayoutHotkeysSettingsView() }
+        Section { LayoutEditorButtons() }
     }
 }
 
-private struct WindowsTab: View {
+struct WindowsTab: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            EligibilitySettingsView()
-            Divider()
-            WindowStateSettings()
-            Divider()
-            NewWindowPlacementSettings()
-            Divider()
-            ZoneCycleSettings()
-            Divider()
-            RotationSettingsView()
-        }
+        Section { EligibilitySettingsView() }
+        Section { WindowStateSettings() }
+        Section { NewWindowPlacementSettings() }
+        Section { ZoneCycleSettings() }
+        Section { RotationSettingsView() }
     }
 }
 
-private struct AppearanceTab: View {
+struct AppearanceTab: View {
     @AppStorage(Prefs.useSystemColorsKey) private var useSystemColors = true
     @AppStorage(Prefs.highlightColorKey) private var highlightColor = "#0A84FF"
     @AppStorage(Prefs.inactiveColorKey) private var inactiveColor = "#8E8E93"
@@ -116,7 +107,7 @@ private struct AppearanceTab: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        Section {
             Text("Zone overlay").font(.headline)
             Toggle("Use system colors (follows light/dark mode)", isOn: $useSystemColors)
             if !useSystemColors {
@@ -132,17 +123,15 @@ private struct AppearanceTab: View {
             }
             Toggle("Show zone numbers", isOn: $showNumbers)
             Toggle("Flash zones when switching layout with a hotkey", isOn: $flash)
-            Divider()
-            LayoutIndicatorSettingsView()
         }
+        Section { LayoutIndicatorSettingsView() }
     }
 }
 
-private struct ShortcutsTab: View {
+struct ShortcutsTab: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            KeyboardNavSettingsView()
-            Divider()
+        Section { KeyboardNavSettingsView() }
+        Section {
             Text("Other shortcuts").font(.headline)
             ShortcutRow(id: .preview)
             ShortcutRow(id: .cycleNext)
@@ -151,7 +140,7 @@ private struct ShortcutsTab: View {
             ShortcutRow(id: .openEditor)
             ShortcutRow(id: .rotation)
             Text("Click a shortcut, then press the new combination. Esc cancels; Delete clears (where allowed). Every shortcut needs at least one modifier. Cycling and rotation shortcuts only work while those features are enabled (Windows tab).")
-                .font(.footnote).foregroundStyle(.secondary)
+                .settingsHint()
         }
     }
 }

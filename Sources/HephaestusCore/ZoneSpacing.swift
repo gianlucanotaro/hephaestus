@@ -145,7 +145,7 @@ struct SpanScreensSetting: View {
         Group {
             Toggle("Span layouts across all screens as one surface", isOn: $span)
             Text("Windows may then span screens. Off: each screen has its own zones. The first screen owns the shared layout.")
-                .font(.footnote).foregroundStyle(.secondary)
+                .settingsHint()
         }
     }
 }

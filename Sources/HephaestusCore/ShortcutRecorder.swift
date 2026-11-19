@@ -65,7 +65,7 @@ struct ShortcutRecorder: View {
             }
             .help(canClear ? "Click, then press the shortcut. Esc cancels, Delete clears." : "Click, then press the shortcut. Esc cancels.")
             if let message = session.message {
-                Text(message).font(.footnote).foregroundStyle(.orange)
+                Text(message).settingsHint(.orange)
             }
         }
         .onDisappear { session.stop() }
@@ -102,11 +102,11 @@ struct ShortcutRow: View {
             }
             if !conflicts.isEmpty {
                 Text("Same shortcut as: \(conflicts.map { ShortcutSpecs.spec($0).title }.joined(separator: ", ")). Only one of them will work.")
-                    .font(.footnote).foregroundStyle(.orange)
+                    .settingsHint(.orange)
             }
             if refused {
                 Text("macOS refused this shortcut (another app or a system shortcut already uses it). Pick another.")
-                    .font(.footnote).foregroundStyle(.red)
+                    .settingsHint(.red)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in tick += 1 }

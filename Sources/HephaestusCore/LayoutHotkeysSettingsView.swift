@@ -28,7 +28,7 @@ struct LayoutHotkeysSettingsView: View {
                 }
             }
             Text("Modifiers + number applies the layout to the screen under the cursor, also while dragging a window. Set the modifiers under Shortcuts.")
-                .font(.footnote).foregroundStyle(.secondary)
+                .settingsHint()
         }
         .onReceive(NotificationCenter.default.publisher(for: LayoutStore.didChange)) { _ in layouts = LayoutStore.shared.all }
         .onReceive(NotificationCenter.default.publisher(for: LayoutHotkeys.didChange)) { _ in map = LayoutHotkeys.shared.map }

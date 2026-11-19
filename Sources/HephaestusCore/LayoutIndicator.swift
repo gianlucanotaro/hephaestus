@@ -224,7 +224,7 @@ struct WheelCycleSetting: View {
         Group {
             Toggle("Cycle layouts with the mouse wheel while dragging", isOn: $wheel)
             Text("Scrolls through hotkey-numbered layouts (or custom layouts) on the screen under the cursor. Needs Accessibility; relaunch after granting it.")
-                .font(.footnote).foregroundStyle(.secondary)
+                .settingsHint()
         }
     }
 }

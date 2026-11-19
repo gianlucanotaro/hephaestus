@@ -108,24 +108,26 @@ struct GeneralSettingsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        Group {
+        Section {
             Text("General").font(.headline)
             Toggle("Launch Hephaestus at login", isOn: Binding(get: { login.state.isOn }, set: { login.setEnabled($0) }))
                 .disabled(!login.state.canToggle)
-            if let hint = login.state.hint { Text(hint).font(.footnote).foregroundStyle(.secondary) }
+            if let hint = login.state.hint { Text(hint).settingsHint() }
             if login.state.showsOpenSettings {
                 Button("Open Login Items Settings…") { login.openLoginItemsSettings() }
             }
-            if let error = login.error { Text(error).font(.footnote).foregroundStyle(.red) }
+            if let error = login.error { Text(error).settingsHint(.red) }
+        }
 
-            Divider()
+        Section {
             Text("Accessibility").font(.headline)
             HStack {
                 Image(systemName: trusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                     .foregroundStyle(trusted ? .green : .orange)
                 Text(trusted ? "Trusted" : "Not trusted")
             }
-            Text(AccessibilityStatusText.message(trusted: trusted)).font(.footnote).foregroundStyle(.secondary)
+            Text(AccessibilityStatusText.message(trusted: trusted)).settingsHint()
             if !trusted {
                 Button("Open Accessibility Settings…") {
                     if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
@@ -133,12 +135,14 @@ struct GeneralSettingsView: View {
                     }
                 }
             }
+        }
 
-            Divider()
+        Section {
             Text("About").font(.headline)
             Text("Hephaestus \(version)")
             Text("A FancyZones-style window manager for macOS. Choose the layout from the menu bar; the full hotkey list is in the README.")
-                .font(.footnote).foregroundStyle(.secondary)
+                .settingsHint()
+        }
         }
         .onAppear { login.refresh(); trusted = AXIsProcessTrusted() }
         .onReceive(timer) { _ in
