@@ -122,11 +122,35 @@ hephaestus-cli --help | --version
 
 Exit codes: 0 success, 1 runtime error (including "Hephaestus is not running"), 2 usage error. The CLI talks to the app over a private unix socket in `~/Library/Application Support/Hephaestus/` (owner-only permissions).
 
+## Updates
+
+Hephaestus checks GitHub Releases for a newer version 30 seconds after launch and then at most once every 24 hours (turn this off in **Settings > General > Updates**, or use **Check for Updates...** in the menu any time). When one is found you can **Install & Restart**, choose **Later**, or **Skip This Version**. Nothing is ever installed without you clicking Install & Restart.
+
+How it stays safe:
+
+- Each release carries `Hephaestus-<version>.zip` and `Hephaestus-<version>.zip.sig`, an Ed25519 signature made with the maintainer's private key. The app embeds the matching public key (`Sources/HephaestusCore/UpdateKey.swift`) and verifies the signature **before** unzipping anything.
+- Downloads are HTTPS only, limited to GitHub hosts (also across redirects) and capped at 300 MB.
+- The unpacked app must be `Hephaestus.app` with the same bundle identifier, exactly the advertised version (newer than yours), and a code signature that satisfies the running app's designated requirement. Builds that are ad-hoc signed (a local `./build.sh` without `./setup-signing.sh`) skip only that last check and rely on the Ed25519 signature.
+- A detached helper waits for the app to quit, keeps a backup of the old bundle, copies the new one in and relaunches; if anything fails it restores the old app. If the app's folder isn't writable (or it isn't running from a `.app`), the release page opens instead.
+
+The first install is manual (see Install above); the Gatekeeper note there is unchanged. macOS keeps the Accessibility grant across updates only while the signing identity stays the same, so release builds should always be signed with the same certificate.
+
+### Release signing key (maintainer)
+
+```bash
+mkdir -p ~/.hephaestus && chmod 700 ~/.hephaestus
+swift run -c release hephaestus-sign keygen ~/.hephaestus/update-signing.key   # prints the PUBLIC key
+# paste it into Sources/HephaestusCore/UpdateKey.swift (publicKeyBase64), commit, then:
+./release.sh --publish          # signs the zip, verifies the signature, uploads zip + .sig
+```
+
+The private key file lives outside the repository (override the path with `HEPHAESTUS_SIGNING_KEY`). Never commit it, and back it up: if it is lost, installed copies can only be updated by a manual install of a build with a new public key. `hephaestus-sign` also offers `sign <key> <file>` and `verify <public-key> <file> <sig>`; it is release tooling and is not copied into the app bundle. While `publicKeyBase64` is empty, updates are disabled and `--publish` refuses to run.
+
 ## Settings
 
 Open **Settings...** from the menu bar icon. The window has six tabs:
 
-- **General**: launch at login (needs the bundled, signed app; if macOS asks for approval, a button opens System Settings > General > Login Items), the Accessibility permission status with a shortcut to System Settings (relaunch after granting it, rotation and wheel cycling need event taps that only start with the permission), version
+- **General**: launch at login (needs the bundled, signed app; if macOS asks for approval, a button opens System Settings > General > Login Items), the Accessibility permission status with a shortcut to System Settings (relaunch after granting it, rotation and wheel cycling need event taps that only start with the permission), version, and the Updates section (automatic checks, last checked, Check Now)
 - **Activation**: drag activation mode, multi-zone modifier, wheel layout cycling, show zones on all screens, adjacent-highlight distance
 - **Layouts**: layout per screen and landscape / portrait defaults, center aspect, default gap and gap per layout, span across screens, layout hotkey numbers, buttons for the grid / canvas editors
 - **Windows**: eligibility (dialogs, floating, child windows, excluded apps), overlapping-zone policy, window memory, new-window placement, zone cycling, rotation

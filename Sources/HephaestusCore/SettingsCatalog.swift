@@ -27,6 +27,7 @@ enum SettingsCatalog {
                           Prefs.indicatorEnabledKey, Prefs.indicatorPositionKey, Prefs.indicatorTextColorKey,
                           Prefs.indicatorBackgroundColorKey, Prefs.indicatorTextSizeKey, Prefs.indicatorPaddingKey,
                           Prefs.indicatorDurationKey])
+        add(.general, [Prefs.autoUpdateCheckKey])
         add(.shortcuts, [Prefs.navModeKey, Prefs.navCrossScreensKey])
         // Every key behind a recorder.
         for spec in ShortcutSpecs.all {
@@ -39,6 +40,8 @@ enum SettingsCatalog {
     static let internalKeys: Set<String> = [
         Prefs.activeLayoutKey,          // global fallback layout; per-screen pickers + orientation defaults replace it
         Prefs.editorHotkeyLetterKey,    // legacy letter, migrated into editorHotkeyKeyCode by ShortcutMigration
-        "windowTrackerState",           // persistence blob (WindowTracker)
+        Prefs.lastUpdateCheckKey,       // timestamp shown as text in General > Updates
+        Prefs.skippedUpdateVersionKey,  // set by the "Skip This Version" button
+        "windowTrackerState",          // persistence blob (WindowTracker)
     ]
 }
