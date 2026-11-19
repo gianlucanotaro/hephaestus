@@ -1,11 +1,5 @@
 import AppKit
 
-enum Zone: String, CaseIterable {
-    case left, center, right
-
-    var title: String { rawValue.capitalized }
-}
-
 /// User-configurable layout, persisted in UserDefaults.
 enum Prefs {
     static let aspectWKey = "aspectW"
@@ -23,6 +17,7 @@ enum Prefs {
     static let showNumbersKey = "overlayShowNumbers"
 
     static func register() {
+        registerLayoutDefaults()
         UserDefaults.standard.register(defaults: [
             aspectWKey: 16.0, aspectHKey: 9.0, gapKey: 8.0, dragActivationKey: DragActivation.shift.rawValue,
             multiZoneModifierKey: MultiZoneModifier.control.rawValue, showAllScreensKey: false, useSystemColorsKey: true,
@@ -54,11 +49,11 @@ extension NSScreen {
 }
 
 enum ZoneLayout {
-    /// Pure geometry: a centered rect with the given aspect ratio at full height,
-    /// and the leftover width split evenly into left/right. Same coordinate space as `frame`.
+    /// Pure geometry for the "Ultrawide 3-way" rule: a centered rect with the given aspect ratio at full
+    /// height, and the leftover width split evenly into left/right. Same coordinate space as `frame`.
     /// Screens too narrow for that (sides under 10% of the width, e.g. a 16:10 laptop panel)
     /// fall back to a proportional 25/50/25 split so every screen still gets three zones.
-    static func zones(in frame: CGRect, centerAspect: CGFloat, gap: CGFloat) -> [Zone: CGRect] {
+    static func ultrawideZones(in frame: CGRect, centerAspect: CGFloat, gap: CGFloat) -> [CGRect] {
         var centerW = frame.height * centerAspect
         if (frame.width - centerW) / 2 < frame.width * 0.10 { centerW = frame.width * 0.5 }
         let sideW = (frame.width - centerW) / 2
@@ -66,11 +61,18 @@ enum ZoneLayout {
         func r(_ x: CGFloat, _ w: CGFloat) -> CGRect {
             CGRect(x: x, y: frame.minY, width: w, height: frame.height).insetBy(dx: inset, dy: inset)
         }
-        return [
-            .left: r(frame.minX, sideW),
-            .center: r(frame.minX + sideW, centerW),
-            .right: r(frame.minX + sideW + centerW, sideW),
-        ]
+        return [r(frame.minX, sideW), r(frame.minX + sideW, centerW), r(frame.minX + sideW + centerW, sideW)]
+    }
+
+    /// Pure geometry: the zones of `layout` inside `frame` (AppKit space), indexed by `ZoneIndex`.
+    /// Each zone is inset by `gap / 2` on every side. `centerAspect` only matters for rule-based layouts.
+    static func zones(layout: Layout, in frame: CGRect, centerAspect: CGFloat = 16.0 / 9.0, gap: CGFloat) -> [CGRect] {
+        switch layout.rule {
+        case .ultrawideThreeWay?:
+            return ultrawideZones(in: frame, centerAspect: centerAspect, gap: gap)
+        case nil:
+            return layout.zones.map { $0.resolve(in: frame).insetBy(dx: gap / 2, dy: gap / 2) }
+        }
     }
 
     /// How close (in points) the cursor must be to the shared edge of two adjacent zones to select both.
@@ -78,14 +80,15 @@ enum ZoneLayout {
 
     /// Pure hit-test: the zone under `point` (the gap counts as part of the nearest zone), plus every
     /// zone adjacent to it whose facing edge is within `edgeThreshold` of the point. Empty if outside all zones.
-    static func selection(at point: CGPoint, in zones: [Zone: CGRect], gap: CGFloat,
-                          edgeThreshold: CGFloat = ZoneLayout.edgeThreshold) -> Set<Zone> {
+    static func selection(at point: CGPoint, in zones: [CGRect], gap: CGFloat,
+                          edgeThreshold: CGFloat = ZoneLayout.edgeThreshold) -> Set<ZoneIndex> {
         let slack = gap / 2
-        guard let (primary, pr) = zones.first(where: { $0.value.insetBy(dx: -slack, dy: -slack).contains(point) })
+        guard let primary = zones.indices.first(where: { zones[$0].insetBy(dx: -slack, dy: -slack).contains(point) })
         else { return [] }
-        var result: Set<Zone> = [primary]
+        let pr = zones[primary]
+        var result: Set<ZoneIndex> = [primary]
         let tolerance = gap + 1
-        for (zone, r) in zones where zone != primary {
+        for (zone, r) in zones.enumerated() where zone != primary {
             let xOverlap = min(pr.maxX, r.maxX) - max(pr.minX, r.minX)
             let yOverlap = min(pr.maxY, r.maxY) - max(pr.minY, r.minY)
             let hGap = max(r.minX - pr.maxX, pr.minX - r.maxX)   // > 0 when separated horizontally
@@ -102,18 +105,25 @@ enum ZoneLayout {
     }
 
     /// Bounding rectangle of the given zones.
-    static func boundingRect(of selected: Set<Zone>, in zones: [Zone: CGRect]) -> CGRect? {
-        guard let first = selected.compactMap({ zones[$0] }).first else { return nil }
-        return selected.compactMap { zones[$0] }.reduce(first) { $0.union($1) }
+    static func boundingRect(of selected: Set<ZoneIndex>, in zones: [CGRect]) -> CGRect? {
+        let rects = selected.sorted().compactMap { zones.indices.contains($0) ? zones[$0] : nil }
+        guard let first = rects.first else { return nil }
+        return rects.reduce(first) { $0.union($1) }
     }
 
-    /// Zones for one screen, in AppKit coordinates (origin bottom-left of primary screen).
-    static func zones(for screen: NSScreen) -> [Zone: CGRect] {
-        zones(in: screen.visibleFrame, centerAspect: Prefs.aspect, gap: Prefs.gap)
+    /// The layout in effect for `screen`. Single entry point for "which layout applies here";
+    /// today every screen uses the globally active layout (per-monitor assignment plugs in here).
+    static func layout(for screen: NSScreen) -> Layout {
+        LayoutStore.shared.active
+    }
+
+    /// Zones for one screen, in AppKit coordinates (origin bottom-left of primary screen), by `ZoneIndex`.
+    static func zones(for screen: NSScreen) -> [CGRect] {
+        zones(layout: layout(for: screen), in: screen.visibleFrame, centerAspect: Prefs.aspect, gap: Prefs.gap)
     }
 
     /// Every connected screen with its zones.
-    static func allZones() -> [(screen: NSScreen, zones: [Zone: CGRect])] {
+    static func allZones() -> [(screen: NSScreen, zones: [CGRect])] {
         NSScreen.screens.map { ($0, zones(for: $0)) }
     }
 

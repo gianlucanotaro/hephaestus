@@ -7,8 +7,19 @@ enum WindowMover {
         return AXIsProcessTrustedWithOptions(opts)
     }
 
+    /// Snap to the first / middle / last zone of the layout on the window's screen.
     @discardableResult
-    static func snapFrontWindow(to zone: Zone) -> Bool {
+    static func snapFrontWindow(slot: SnapSlot) -> Bool {
+        snapFrontWindow { slot.index(count: $0) }
+    }
+
+    @discardableResult
+    static func snapFrontWindow(to zone: ZoneIndex) -> Bool {
+        snapFrontWindow { _ in zone }
+    }
+
+    /// `pick` receives the zone count of the target screen's layout and returns the zone index to use.
+    private static func snapFrontWindow(pick: (Int) -> ZoneIndex) -> Bool {
         guard ensureAccessibility(prompt: true),
               let app = NSWorkspace.shared.frontmostApplication,
               app.processIdentifier != ProcessInfo.processInfo.processIdentifier
@@ -23,8 +34,11 @@ enum WindowMover {
 
         guard let current = frame(of: window),
               let screen = ZoneLayout.screen(containing: ZoneLayout.fromAX(current)),
-              let target = ZoneLayout.zones(for: screen)[zone]
+              case let zones = ZoneLayout.zones(for: screen),
+              case let index = pick(zones.count),
+              zones.indices.contains(index)
         else { return false }
+        let target = zones[index]
 
         move(window, toAppKitRect: target)
         return true
