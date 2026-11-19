@@ -253,25 +253,14 @@ struct KeyBinding: Equatable {
     var modifiers: Int
 }
 
-/// Carbon modifier flags, as stored in Prefs.
-enum HotKeyModifiers {
-    static let all = controlKey | optionKey | shiftKey | cmdKey
-    /// Masks to the four supported flags; falls back when none is left (a bare arrow key must never be global).
-    static func sanitized(_ raw: Int, fallback: Int) -> Int {
-        let m = raw & all
-        return m == 0 ? fallback : m
-    }
-    static func symbols(_ m: Int) -> String {
-        (m & controlKey != 0 ? "⌃" : "") + (m & optionKey != 0 ? "⌥" : "")
-            + (m & shiftKey != 0 ? "⇧" : "") + (m & cmdKey != 0 ? "⌘" : "")
-    }
-}
-
 struct KeyboardNavConfig: Equatable {
     var mode: KeyboardNavMode
     var directModifiers: Int
     var moveModifiers: Int
     var expandModifiers: Int
+    /// Per-zone direct shortcuts (first, middle, last; nil entry = cleared). When nil, the default arrows with
+    /// `directModifiers` are used.
+    var direct: [Shortcut?]? = nil
 
     static let defaultDirect = controlKey | optionKey
     static let defaultMove = controlKey | optionKey
@@ -285,9 +274,13 @@ struct KeyboardNavConfig: Equatable {
         var out: [KeyBinding] = []
         switch mode {
         case .direct:
-            out = [KeyBinding(action: .snap(.first), keyCode: kVK_LeftArrow, modifiers: directModifiers),
-                   KeyBinding(action: .snap(.middle), keyCode: kVK_UpArrow, modifiers: directModifiers),
-                   KeyBinding(action: .snap(.last), keyCode: kVK_RightArrow, modifiers: directModifiers)]
+            let fallback: [Shortcut?] = [kVK_LeftArrow, kVK_UpArrow, kVK_RightArrow].map {
+                Shortcut(keyCode: Int($0), modifiers: HotkeyModifiers(carbon: directModifiers))
+            }
+            let shortcuts = direct ?? fallback
+            for (slot, shortcut) in zip([SnapSlot.first, .middle, .last], shortcuts) {
+                if let shortcut { out.append(KeyBinding(action: .snap(slot), keyCode: shortcut.keyCode, modifiers: shortcut.modifiers.carbon)) }
+            }
         case .zoneIndex:
             out = Self.arrows.filter { $0.0.isHorizontal }
                 .map { KeyBinding(action: .move($0.0), keyCode: $0.1, modifiers: moveModifiers) }

@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var keyboardNav = KeyboardNavController(hotKeys: hotKeys)
     private lazy var dragSnap = DragSnapController(overlay: overlay)
     private let rotation = RotationController()
+    private lazy var previewHotkey = PreviewHotkeyController(hotKeys: hotKeys) { [weak self] in self?.overlay.toggle() }
     private lazy var zoneCycling = ZoneCycleController(hotKeys: hotKeys)
     private lazy var layoutHotkeys = LayoutHotkeyRegistrar(hotKeys: hotKeys, overlay: overlay)
     private let layoutIndicator = LayoutIndicator()
@@ -34,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         layoutIndicator.start()
 
         keyboardNav.start()
-        hotKeys.register(keyCode: kVK_ANSI_Z) { [weak self] in self?.overlay.toggle() }
+        previewHotkey.start()
         zoneCycling.start()
         layoutHotkeys.start()
         cliServer.start()

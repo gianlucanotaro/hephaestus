@@ -1,25 +1,15 @@
 import SwiftUI
 
-/// Settings section for rotation mode.
+/// Rotation mode: the enable toggle (Windows tab). The trigger shortcut is recorded in the Shortcuts tab.
 struct RotationSettingsView: View {
     @AppStorage(Prefs.rotationEnabledKey) private var enabled = false
-    @AppStorage(Prefs.rotationModifierKey) private var modifier = RotationModifier.option.rawValue
-    @AppStorage(Prefs.rotationKeyCodeKey) private var keyCode = 7
 
     var body: some View {
-        Text("Rotation").font(.headline)
-        Toggle("Rotate windows across monitors", isOn: $enabled)
-        if enabled {
-            HStack {
-                Picker("Hold", selection: $modifier) {
-                    ForEach(RotationModifier.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
-                }
-                Picker("+", selection: $keyCode) {
-                    ForEach(RotationKey.letters, id: \.code) { Text($0.title).tag($0.code) }
-                }
-            }
+        Group {
+            Text("Rotation").font(.headline)
+            Toggle("Rotate windows across monitors", isOn: $enabled)
+            Text("Hold the trigger shortcut and press ← or → to move every window one screen over (wraps around), keeping its zone number. A preview is shown while held. Needs Accessibility; relaunch after granting it. Disabled while layouts span all screens.")
+                .font(.footnote).foregroundStyle(.secondary)
         }
-        Text("Hold the shortcut and press ← or → to move every window one screen over (wraps around), keeping its zone number. A preview is shown while held.")
-            .font(.footnote).foregroundStyle(.secondary)
     }
 }

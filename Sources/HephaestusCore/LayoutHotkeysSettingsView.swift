@@ -1,27 +1,10 @@
 import SwiftUI
 
-/// "Layout Hotkeys" section of the settings window.
+/// Per-layout hotkey numbers (Layouts tab). The modifiers and the editor shortcut are recorded in the Shortcuts tab,
+/// the "flash zones" toggle lives under Appearance.
 struct LayoutHotkeysSettingsView: View {
-    @AppStorage(Prefs.layoutHotkeyModifiersKey) private var layoutMods = HotkeyModifiers.controlOptionCommand.carbon
-    @AppStorage(Prefs.flashZonesKey) private var flash = true
-    @AppStorage(Prefs.editorHotkeyModifiersKey) private var editorMods = HotkeyModifiers.controlOptionCommand.carbon
-    @AppStorage(Prefs.editorHotkeyLetterKey) private var editorLetter = "E"
     @State private var map = LayoutHotkeys.shared.map
     @State private var layouts = LayoutStore.shared.all
-
-    private func modifierToggles(_ value: Binding<Int>) -> some View {
-        HStack {
-            ForEach([(HotkeyModifiers.control, "⌃"), (.option, "⌥"), (.shift, "⇧"), (.command, "⌘")], id: \.1) { mod, symbol in
-                Toggle(symbol, isOn: Binding(
-                    get: { HotkeyModifiers(carbon: value.wrappedValue).contains(mod) },
-                    set: { on in
-                        var m = HotkeyModifiers(carbon: value.wrappedValue)
-                        if on { m.insert(mod) } else { m.remove(mod) }
-                        value.wrappedValue = m.carbon
-                    }))
-            }
-        }
-    }
 
     private func numberBinding(_ layout: Layout) -> Binding<Int> {
         Binding(get: { map.first { $0.value == layout.id }?.key ?? -1 },
@@ -36,26 +19,15 @@ struct LayoutHotkeysSettingsView: View {
     }
 
     var body: some View {
-        Group {
-            Text("Layout hotkeys").font(.headline)
-            HStack { Text("Modifiers + number"); modifierToggles($layoutMods) }
-            if !HotkeyModifiers(carbon: layoutMods).isValid {
-                Text("Pick at least one modifier, otherwise the hotkeys are disabled.").font(.footnote).foregroundStyle(.red)
-            }
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Layout hotkey numbers").font(.headline)
             ForEach(layouts) { layout in
                 Picker(layout.name, selection: numberBinding(layout)) {
                     Text("None").tag(-1)
                     ForEach(Array(LayoutHotkeys.validNumbers), id: \.self) { Text("\($0)").tag($0) }
                 }
             }
-            Toggle("Flash zones when switching layout", isOn: $flash)
-            HStack {
-                Text("Open layout editor")
-                modifierToggles($editorMods)
-                Picker("", selection: $editorLetter) { ForEach(LayoutHotkeyKeys.letters, id: \.self) { Text($0).tag($0) } }
-                    .labelsHidden().frame(width: 60)
-            }
-            Text("Applies to the screen under the cursor, also while dragging a window.")
+            Text("Modifiers + number applies the layout to the screen under the cursor, also while dragging a window. Set the modifiers under Shortcuts.")
                 .font(.footnote).foregroundStyle(.secondary)
         }
         .onReceive(NotificationCenter.default.publisher(for: LayoutStore.didChange)) { _ in layouts = LayoutStore.shared.all }

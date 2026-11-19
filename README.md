@@ -71,7 +71,7 @@ Run `./setup-signing.sh` once before your first build. Without it the app is ad-
 | Span several zones | Drop near the edge between two zones, hold ⌃ while dragging, or middle-click | |
 | Cycle layouts while dragging | Mouse wheel | Off by default |
 
-All Carbon hotkeys use distinct key combinations by default. Modifiers for keyboard navigation, cycling, layout numbers and the editor are configurable in Settings.
+All Carbon hotkeys use distinct key combinations by default. Every hotkey is configurable in Settings > Shortcuts.
 
 ### macOS shortcut conflicts
 
@@ -79,7 +79,7 @@ macOS can take a shortcut before Hephaestus sees it. If a hotkey does nothing:
 
 - **macOS Sequoia and later** have their own window tiling shortcuts (Fn/Globe + Control + arrows, and in some versions Control + Option + arrows). Pick other modifiers in Settings (for example ⌃⌥⌘), or turn the system shortcuts off in System Settings > Keyboard > Keyboard Shortcuts > Windows (and Desktop & Dock > Windows).
 - **Control + arrow keys** are Mission Control / Spaces shortcuts by default. This also affects the canvas editor's Control+arrow fine nudging.
-- Another app may already own a combination; the system refuses duplicates, and Hephaestus skips that hotkey silently.
+- Another app may already own a combination; the system refuses duplicates and the Shortcuts tab shows a warning under that shortcut.
 
 The rotation shortcut and the mouse wheel option use an event tap, which needs the same Accessibility permission. After granting it for the first time, relaunch the app.
 
@@ -104,17 +104,18 @@ Exit codes: 0 success, 1 runtime error (including "Hephaestus is not running"), 
 
 ## Settings
 
-Open **Settings...** from the menu bar icon. It is one scrolling window with sections:
+Open **Settings...** from the menu bar icon. The window has six tabs:
 
-- Zones: center aspect ratio, gap, drag activation, multi-zone modifier, adjacent-highlight distance, span across screens
-- Appearance: overlay colors (system or custom), opacity, zone numbers
-- Keyboard: mode, modifiers, cross-screen movement
-- Window eligibility: dialogs, floating and child windows, overlapping-zone policy, excluded apps
-- Window memory: restore size, re-apply on display or layout change
-- New windows: last zone, active screen
-- Zone cycling and rotation
-- Layout hotkeys: numbers per layout, flash on switch, editor shortcut
-- Layout switching: wheel cycling and the layout-name indicator (position, colors, size, duration)
+- **General**: launch at login (needs the bundled, signed app; if macOS asks for approval, a button opens System Settings > General > Login Items), the Accessibility permission status with a shortcut to System Settings (relaunch after granting it, rotation and wheel cycling need event taps that only start with the permission), version
+- **Activation**: drag activation mode, multi-zone modifier, wheel layout cycling, show zones on all screens, adjacent-highlight distance
+- **Layouts**: layout per screen and landscape / portrait defaults, center aspect, default gap and gap per layout, span across screens, layout hotkey numbers, buttons for the grid / canvas editors
+- **Windows**: eligibility (dialogs, floating, child windows, excluded apps), overlapping-zone policy, window memory, new-window placement, zone cycling, rotation
+- **Appearance**: overlay colors, opacity, zone numbers, flash on layout switch, layout-name popup (position, colors, size, duration)
+- **Shortcuts**: keyboard navigation mode and every hotkey with a recorder
+
+### Shortcut recorder
+
+Click a shortcut, press the new combination. Esc cancels, Delete clears (where a shortcut can be turned off), and a combination without a modifier is refused. The recorder warns inline when two active shortcuts use the same keys, and when macOS refused to register a combination (another app or a system shortcut owns it). Arrow-key and number-key groups (move, expand, layout numbers) record the modifiers; the keys stay fixed. Rotation takes exactly one modifier plus a key. Old stored settings keep working.
 
 ## How it works
 

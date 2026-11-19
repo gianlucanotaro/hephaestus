@@ -198,9 +198,9 @@ private let focus: [CGRect] = [CGRect(x: 0, y: 60, width: 100, height: 100), CGR
         #expect(!cfg(.relative).hasConflict)
     }
     @Test func modifierSanitizing() {
-        #expect(HotKeyModifiers.sanitized(0, fallback: controlKey) == controlKey)
-        #expect(HotKeyModifiers.sanitized(1 << 20, fallback: optionKey) == optionKey)
-        #expect(HotKeyModifiers.sanitized(cmdKey | 0x10000, fallback: optionKey) == cmdKey)
-        #expect(HotKeyModifiers.symbols(controlKey | optionKey | cmdKey) == "⌃⌥⌘")
+        #expect(HotkeyModifiers.sanitized(0, fallback: controlKey) == controlKey)
+        #expect(HotkeyModifiers.sanitized(1 << 20, fallback: optionKey) == optionKey)
+        #expect(HotkeyModifiers.sanitized(cmdKey | 0x10000, fallback: optionKey) == cmdKey)
+        #expect(HotkeyModifiers(carbon: controlKey | optionKey | cmdKey).symbols == "⌃⌥⌘")
     }
 }

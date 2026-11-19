@@ -50,12 +50,6 @@ extension Prefs {
         ])
     }
     static var zoneCycleEnabled: Bool { UserDefaults.standard.bool(forKey: zoneCycleEnabledKey) }
-    /// Carbon modifier mask (`cmdKey | shiftKey | optionKey | controlKey`); falls back to ⌃⌥ if empty.
-    static var zoneCycleModifiers: Int {
-        let m = UserDefaults.standard.integer(forKey: zoneCycleModifiersKey)
-            & (cmdKey | shiftKey | optionKey | controlKey)
-        return m == 0 ? controlKey | optionKey : m
-    }
 }
 
 // MARK: - Controller
@@ -65,7 +59,7 @@ extension Prefs {
 final class ZoneCycleController {
     private let hotKeys: HotKeys
     private var ids: [UInt32] = []
-    private var registeredModifiers = 0
+    private var registered: [Shortcut?] = []
 
     init(hotKeys: HotKeys = .shared) { self.hotKeys = hotKeys }
 
@@ -78,17 +72,20 @@ final class ZoneCycleController {
 
     private func reconcile() {
         let want = Prefs.zoneCycleEnabled
-        let mods = Prefs.zoneCycleModifiers
-        if !ids.isEmpty, !want || mods != registeredModifiers {
+        let next = ShortcutStore.read(.cycleNext), previous = ShortcutStore.read(.cyclePrevious)
+        if !registered.isEmpty, !want || [next, previous] != registered {
             ids.forEach { hotKeys.unregister($0) }
             ids = []
+            registered = []
         }
-        guard want, ids.isEmpty else { return }
-        registeredModifiers = mods
-        ids = [
-            hotKeys.register(keyCode: kVK_PageDown, modifiers: mods) { [weak self] in self?.cycle(.next) },
-            hotKeys.register(keyCode: kVK_PageUp, modifiers: mods) { [weak self] in self?.cycle(.previous) },
-        ].compactMap { $0 }
+        guard want, registered.isEmpty else { return }
+        registered = [next, previous]
+        if let next, let id = hotKeys.register(keyCode: next.keyCode, modifiers: next.modifiers.carbon, action: { [weak self] in self?.cycle(.next) }) {
+            ids.append(id)
+        }
+        if let previous, let id = hotKeys.register(keyCode: previous.keyCode, modifiers: previous.modifiers.carbon, action: { [weak self] in self?.cycle(.previous) }) {
+            ids.append(id)
+        }
     }
 
     private func cycle(_ direction: ZoneCycleDirection) {
@@ -134,32 +131,15 @@ final class ZoneCycleController {
 
 // MARK: - Settings UI
 
+/// The enable toggle (Windows tab). The two shortcuts are recorded in the Shortcuts tab.
 struct ZoneCycleSettings: View {
     @AppStorage(Prefs.zoneCycleEnabledKey) private var enabled = true
-    @AppStorage(Prefs.zoneCycleModifiersKey) private var modifiers = controlKey | optionKey
-
-    private func bind(_ flag: Int) -> Binding<Bool> {
-        Binding(get: { modifiers & flag != 0 },
-                set: { on in
-                    let m = on ? modifiers | flag : modifiers & ~flag
-                    if m != 0 { modifiers = m }  // keep at least one modifier
-                })
-    }
 
     var body: some View {
         Group {
             Text("Zone cycling").font(.headline)
             Toggle("Cycle windows within a zone", isOn: $enabled)
-            if enabled {
-                HStack {
-                    Text("Modifiers")
-                    Toggle("⌃", isOn: bind(controlKey))
-                    Toggle("⌥", isOn: bind(optionKey))
-                    Toggle("⇧", isOn: bind(shiftKey))
-                    Toggle("⌘", isOn: bind(cmdKey))
-                }
-            }
-            Text("Modifiers + Page Down / Page Up: next / previous window snapped to the focused window's zone.")
+            Text("Next / previous window snapped to the focused window's zone (shortcuts: Shortcuts tab).")
                 .font(.footnote).foregroundStyle(.secondary)
         }
     }

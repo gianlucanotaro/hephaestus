@@ -124,22 +124,27 @@ final class LayoutGapMenu: NSObject {
     }
 }
 
-/// Settings section for adjacent-highlight distance and spanning zones across screens.
-struct SpacingSettingsView: View {
+/// Adjacent-highlight distance (Activation tab).
+struct EdgeThresholdSetting: View {
     @AppStorage(Prefs.edgeThresholdKey) private var threshold = Double(Prefs.defaultEdgeThreshold)
+
+    var body: some View {
+        HStack {
+            Text("Adjacent highlight distance")
+            Slider(value: $threshold, in: Prefs.edgeThresholdRange, step: 1)
+            Text("\(Int(threshold)) pt").monospacedDigit().frame(width: 50, alignment: .trailing)
+        }
+    }
+}
+
+/// Span layouts across all screens (Layouts tab).
+struct SpanScreensSetting: View {
     @AppStorage(Prefs.spanScreensKey) private var span = false
 
     var body: some View {
         Group {
-            HStack {
-                Text("Adjacent highlight distance")
-                Slider(value: $threshold, in: Prefs.edgeThresholdRange, step: 1)
-                Text("\(Int(threshold)) pt").monospacedDigit().frame(width: 50, alignment: .trailing)
-            }
-            Text("The gap above is the default; each layout can override it from the menu bar (Zone gap).")
-                .font(.footnote).foregroundStyle(.secondary)
             Toggle("Span layouts across all screens as one surface", isOn: $span)
-            Text("Windows may then span screens. Off: each screen has its own zones.")
+            Text("Windows may then span screens. Off: each screen has its own zones. The first screen owns the shared layout.")
                 .font(.footnote).foregroundStyle(.secondary)
         }
     }

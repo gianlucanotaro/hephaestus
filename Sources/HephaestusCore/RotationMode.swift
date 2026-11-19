@@ -132,6 +132,7 @@ final class RotationController {
 
     /// Returns true when the event must be swallowed.
     private func handleTap(type: CGEventType, event: CGEvent) -> Bool {
+        if ShortcutRecording.isActive { return false }   // the settings recorder must see the keys
         let kind: RotationHoldState.Kind
         switch type {
         case .keyDown: kind = .keyDown

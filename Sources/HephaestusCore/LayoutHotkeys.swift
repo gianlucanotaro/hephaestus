@@ -27,30 +27,6 @@ extension Prefs {
     static var layoutHotkeyModifiers: HotkeyModifiers {
         HotkeyModifiers(carbon: UserDefaults.standard.integer(forKey: layoutHotkeyModifiersKey))
     }
-    static var editorHotkeyModifiers: HotkeyModifiers {
-        HotkeyModifiers(carbon: UserDefaults.standard.integer(forKey: editorHotkeyModifiersKey))
-    }
-    static var editorHotkeyLetter: String { UserDefaults.standard.string(forKey: editorHotkeyLetterKey) ?? "E" }
-}
-
-/// Carbon modifier mask (`controlKey` etc.) as an option set.
-struct HotkeyModifiers: OptionSet, Equatable {
-    let rawValue: Int
-    static let control = HotkeyModifiers(rawValue: controlKey)
-    static let option = HotkeyModifiers(rawValue: optionKey)
-    static let shift = HotkeyModifiers(rawValue: shiftKey)
-    static let command = HotkeyModifiers(rawValue: cmdKey)
-    static let controlOptionCommand: HotkeyModifiers = [.control, .option, .command]
-
-    init(rawValue: Int) { self.rawValue = rawValue }
-    /// Unknown bits are dropped.
-    init(carbon: Int) { self.rawValue = carbon & HotkeyModifiers([.control, .option, .shift, .command]).rawValue }
-    var carbon: Int { rawValue }
-    /// A global hotkey needs at least one modifier, otherwise it would hijack plain typing.
-    var isValid: Bool { !isEmpty }
-    var symbols: String {
-        (contains(.control) ? "⌃" : "") + (contains(.option) ? "⌥" : "") + (contains(.shift) ? "⇧" : "") + (contains(.command) ? "⌘" : "")
-    }
 }
 
 /// Virtual key codes for the hotkeys of this feature.

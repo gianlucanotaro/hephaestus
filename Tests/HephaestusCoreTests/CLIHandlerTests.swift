@@ -10,12 +10,14 @@ private final class Fixture {
     var editorOpened = 0
     var settingsOpened = 0
     var cursor: Int? = 1
+    var span = false
     lazy var handler = CLIHandler(
         layouts: layouts, screenLayouts: screens, hotkeys: hotkeys,
         monitors: { [MonitorSnapshot(uuid: "A", name: "Left", width: 1920, height: 1080, isMain: true, orientation: .landscape),
                      MonitorSnapshot(uuid: "B", name: "Right", width: 1080, height: 1920, isMain: false, orientation: .portrait)] },
         cursorMonitor: { [unowned self] in cursor },
         openEditor: { [unowned self] in editorOpened += 1 },
+        spanAll: { [unowned self] in span },
         openSettings: { [unowned self] in settingsOpened += 1 })
 
     init() {
@@ -58,6 +60,18 @@ private final class Fixture {
         #expect(f.run(Request(command: .setLayout, layout: target.id, all: true)).ok)
         #expect(f.screens.layout(uuid: "A", orientation: .landscape).id == target.id)
         #expect(f.screens.layout(uuid: "B", orientation: .portrait).id == target.id)
+    }
+
+    @Test func setLayoutWithSpanAssignsTheSurfaceOwner() {
+        let f = Fixture()
+        f.span = true
+        let target = f.layouts.all[1]
+        // Monitor 2 targeted, but with span on the first monitor owns the surface (same rule as ZoneLayout.setLayout).
+        #expect(f.run(Request(command: .setLayout, layout: target.id, monitor: 2)).ok)
+        #expect(f.screens.assignments["A"] == target.id)
+        #expect(f.screens.assignments["B"] == nil)
+        let m = f.run(Request(command: .getMonitors)).monitors ?? []
+        #expect(m.allSatisfy { $0.layoutID == target.id })
     }
 
     @Test func setLayoutErrors() {

@@ -175,9 +175,8 @@ final class LayoutIndicator {
     }
 }
 
-/// "Layout switching" section of the settings window.
+/// Layout name popup section (Appearance tab).
 struct LayoutIndicatorSettingsView: View {
-    @AppStorage(Prefs.wheelCycleKey) private var wheel = false
     @AppStorage(Prefs.indicatorEnabledKey) private var enabled = true
     @AppStorage(Prefs.indicatorPositionKey) private var position = IndicatorPosition.center.rawValue
     @AppStorage(Prefs.indicatorTextColorKey) private var textColor = "#FFFFFF"
@@ -201,10 +200,7 @@ struct LayoutIndicatorSettingsView: View {
 
     var body: some View {
         Group {
-            Text("Layout switching").font(.headline)
-            Toggle("Cycle layouts with the mouse wheel while dragging", isOn: $wheel)
-            Text("Scrolls through hotkey-numbered layouts (or custom layouts) on the screen under the cursor.")
-                .font(.footnote).foregroundStyle(.secondary)
+            Text("Layout name popup").font(.headline)
             Toggle("Show layout name when the layout changes", isOn: $enabled)
             if enabled {
                 Picker("Position", selection: $position) {
@@ -216,6 +212,19 @@ struct LayoutIndicatorSettingsView: View {
                 slider("Padding", $padding, IndicatorLimits.padding, unit: "px")
                 slider("Duration", $duration, IndicatorLimits.durationMs, unit: "ms")
             }
+        }
+    }
+}
+
+/// Mouse-wheel layout cycling toggle (Activation tab).
+struct WheelCycleSetting: View {
+    @AppStorage(Prefs.wheelCycleKey) private var wheel = false
+
+    var body: some View {
+        Group {
+            Toggle("Cycle layouts with the mouse wheel while dragging", isOn: $wheel)
+            Text("Scrolls through hotkey-numbered layouts (or custom layouts) on the screen under the cursor. Needs Accessibility; relaunch after granting it.")
+                .font(.footnote).foregroundStyle(.secondary)
         }
     }
 }

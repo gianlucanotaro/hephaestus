@@ -23,9 +23,10 @@ extension Prefs {
         let d = UserDefaults.standard
         return KeyboardNavConfig(
             mode: KeyboardNavMode(rawValue: d.string(forKey: navModeKey) ?? "") ?? .direct,
-            directModifiers: HotKeyModifiers.sanitized(d.integer(forKey: navDirectModifiersKey), fallback: KeyboardNavConfig.defaultDirect),
-            moveModifiers: HotKeyModifiers.sanitized(d.integer(forKey: navMoveModifiersKey), fallback: KeyboardNavConfig.defaultMove),
-            expandModifiers: HotKeyModifiers.sanitized(d.integer(forKey: navExpandModifiersKey), fallback: KeyboardNavConfig.defaultExpand))
+            directModifiers: HotkeyModifiers.sanitized(d.integer(forKey: navDirectModifiersKey), fallback: KeyboardNavConfig.defaultDirect),
+            moveModifiers: HotkeyModifiers.sanitized(d.integer(forKey: navMoveModifiersKey), fallback: KeyboardNavConfig.defaultMove),
+            expandModifiers: HotkeyModifiers.sanitized(d.integer(forKey: navExpandModifiersKey), fallback: KeyboardNavConfig.defaultExpand),
+            direct: [ShortcutID.directFirst, .directMiddle, .directLast].map { ShortcutStore.read($0) })
     }
     static var navCrossScreens: Bool { UserDefaults.standard.bool(forKey: navCrossScreensKey) }
 }

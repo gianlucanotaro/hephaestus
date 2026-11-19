@@ -24,15 +24,14 @@ final class LayoutHotkeyRegistrar {
     }
 
     /// Registration signature; changes only when a relevant pref changes.
-    static func signature(layoutMods: HotkeyModifiers, editorMods: HotkeyModifiers, editorLetter: String) -> String {
-        "\(layoutMods.carbon)|\(editorMods.carbon)|\(editorLetter)"
+    static func signature(layoutMods: HotkeyModifiers, editor: Shortcut?) -> String {
+        "\(layoutMods.carbon)|\(editor.map { "\($0.modifiers.carbon)-\($0.keyCode)" } ?? "off")"
     }
 
     private func reload() {
         let layoutMods = Prefs.layoutHotkeyModifiers
-        let editorMods = Prefs.editorHotkeyModifiers
-        let letter = Prefs.editorHotkeyLetter
-        let sig = Self.signature(layoutMods: layoutMods, editorMods: editorMods, editorLetter: letter)
+        let editor = ShortcutStore.read(.openEditor)
+        let sig = Self.signature(layoutMods: layoutMods, editor: editor)
         guard sig != signature else { return }
         signature = sig
         ids.forEach(hotKeys.unregister)
@@ -44,8 +43,7 @@ final class LayoutHotkeyRegistrar {
                                              action: { applyLayout(number: number, overlay: overlay) }) { ids.append(id) }
             }
         }
-        if editorMods.isValid, let code = LayoutHotkeyKeys.keyCode(forLetter: letter),
-           let id = hotKeys.register(keyCode: code, modifiers: editorMods.carbon, action: openEditorForCursorScreen) {
+        if let editor, let id = hotKeys.register(keyCode: editor.keyCode, modifiers: editor.modifiers.carbon, action: openEditorForCursorScreen) {
             ids.append(id)
         }
     }

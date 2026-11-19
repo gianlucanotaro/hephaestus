@@ -30,7 +30,7 @@ Run `./setup-signing.sh` once to create a local "Hephaestus Dev" certificate; `b
 SwiftPM targets: `HephaestusIPC` (Foundation-only: CLI protocol, parser, rendering, socket client, version) <- `HephaestusCore` (all app logic) <- `Hephaestus` (thin executable calling `runHephaestus()`); `hephaestus-cli` (executable, depends only on `HephaestusIPC`); tests in `HephaestusCoreTests` and `HephaestusIPCTests`.
 
 `Sources/HephaestusCore/` (by area)
-- App shell: `AppDelegate.swift` (status item, menu, startup order, settings window, import/export panels), `SettingsView.swift` (one scrolling stack; the per-feature `*Settings*` views are sections, dividers live only in `SettingsView`), `HotKeys.swift`
+- App shell: `AppDelegate.swift` (status item, menu, startup order, settings window, import/export panels), `SettingsView.swift` (six-tab `TabView`; the per-feature `*Settings*` views are sections composed into tabs, dividers live only in `SettingsView`), `HotKeys.swift`, `Shortcut.swift`/`ShortcutStore.swift`/`ShortcutRecorder.swift`, `SettingsCatalog.swift`, `LaunchAtLogin.swift`
 - Layout model: `Layout.swift` (`Layout`, `RelRect`, `ZoneIndex`, `SnapSlot`, `LayoutTemplates`, `LayoutStore`), `ScreenLayouts.swift` (per-screen assignment), `ZoneLayout.swift` (`Prefs` core keys + pure geometry), `ZoneSpacing.swift` (per-layout gap, span across screens, edge threshold), `ZoneResolution.swift` (overlap policy)
 - Moving windows: `WindowMover.swift`, `WindowEligibility.swift`, `WindowTracker.swift` + `WindowStateMath.swift`, `DragSnap.swift`, `Overlay.swift`/`OverlayStyle.swift`
 - Keyboard: `ZoneNavigation.swift` (pure) + `KeyboardNav.swift` (+ settings view), `ZoneCycling.swift`, `RotationPlan.swift` (pure) + `RotationMode.swift`, `LayoutHotkeys.swift` + `LayoutHotkeyActions.swift`
@@ -72,6 +72,15 @@ SwiftPM targets: `HephaestusIPC` (Foundation-only: CLI protocol, parser, renderi
 - **Wheel + indicator (`LayoutCycling.swift`, `LayoutIndicator.swift`)**: optional mouse-wheel layout cycling during a snap-drag (a scroll-only event tap exists only while dragging), and a name popup on any effective-layout change.
 - **CLI**: `hephaestus-cli` talks to the app over a unix socket (`~/Library/Application Support/Hephaestus/cli.sock`, 0600, peer-uid checked, one JSON line each way). Protocol/parser/render code is in `HephaestusIPC`; app side is `CLIServer` (socket) + `CLIHandler` (logic with injected stores). New command = `Request` case + parser + handler + tests.
 - **Tests**: `./test.sh` only. Anything involving AX, event taps, overlays or real screens is not unit-tested; keep logic in pure functions.
+
+## Settings architecture
+
+- **Tabs** (`SettingsView.swift`): General (launch at login, Accessibility status, about), Activation, Layouts, Windows, Appearance, Shortcuts. Each setting appears in exactly ONE tab; split a section view (like `WheelCycleSetting`, `SpanScreensSetting`) rather than showing a control twice.
+- **Key coverage**: `SettingsCatalog.exposed` maps each UserDefaults key to its tab, `internalKeys` lists keys deliberately without a control. `SettingsCatalogTests` fails if a registered default is in neither.
+- **Adding a setting**: key + registered default in the feature's `extension Prefs` (called from `Prefs.register()`), a control in the matching tab (section view), the key in `SettingsCatalog.exposed`.
+- **Adding a hotkey**: add a `ShortcutID` case and a `ShortcutSpec` in `ShortcutSpecs.all` (key-code key + modifiers key + default; `.single` = full shortcut, clearable via key code -1; `.group` = fixed keys, modifiers recorded; `.rotation` = one modifier). Read it with `ShortcutStore.read(id)` in the controller (re-register when it changes; controllers observe `UserDefaults.didChangeNotification`), add a `ShortcutRow(id:)` in the Shortcuts tab, and an `active` rule in `ShortcutStore.entries` so the duplicate checker knows when it is in effect. New key-code keys need a registered default equal to the old fixed key; copy shared legacy values in `ShortcutMigration.plan`.
+- **One modifier type**: `HotkeyModifiers` (Carbon mask option set, stored as Int). `HotKeys.shared` records refused combinations in `failures` (UI warns); `setSuspended(true)` releases all combos while a recorder listens (`ShortcutRecording.isActive` also quiets the rotation tap).
+- **Launch at login**: `SMAppService.mainApp` behind `LoginItemService`; `LaunchAtLoginState.make` is the pure status mapping. Disabled with an explanation when not running from a `.app` bundle.
 
 ## Conventions & Gotchas
 

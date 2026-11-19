@@ -35,12 +35,16 @@ final class CLIHandler {
     private let cursorMonitor: () -> Int?
     private let openEditor: () -> Void
     private let openSettings: () -> Void
+    /// Span-all-screens on: the first monitor owns the single zone surface (same rule as `ZoneLayout.setLayout`).
+    private let spanAll: () -> Bool
 
     init(layouts: LayoutStore = .shared, screenLayouts: ScreenLayoutStore = .shared, hotkeys: LayoutHotkeys = .shared,
          monitors: @escaping () -> [MonitorSnapshot] = { NSScreen.screens.map(MonitorSnapshot.init(screen:)) },
          cursorMonitor: @escaping () -> Int? = { ZoneLayout.screenUnderCursor().flatMap { NSScreen.screens.firstIndex(of: $0) } },
          openEditor: @escaping () -> Void = openEditorForCursorScreen,
+         spanAll: @escaping () -> Bool = { Prefs.spanAllScreens },
          openSettings: @escaping () -> Void) {
+        self.spanAll = spanAll
         self.layouts = layouts
         self.screenLayouts = screenLayouts
         self.hotkeys = hotkeys
@@ -121,7 +125,8 @@ final class CLIHandler {
         switch resolveLayout(query) {
         case .failure(let e): return .failure(e.message)
         case .success(let layout):
-            for i in targets { screenLayouts.setLayout(id: layout.id, uuid: list[i].uuid) }
+            let span = spanAll()
+            for i in targets { screenLayouts.setLayout(id: layout.id, uuid: ZoneLayout.owner(of: list[i], in: list, span: span).uuid) }
             let where_ = targets.count == list.count && list.count > 1 ? "all monitors"
                 : "monitor " + targets.map { String($0 + 1) }.joined(separator: ", ")
             return Response(message: "Applied '\(layout.name)' to \(where_).")
@@ -129,8 +134,11 @@ final class CLIHandler {
     }
 
     private func monitorInfos() -> [MonitorInfo] {
-        monitors().enumerated().map { i, m in
-            let l = screenLayouts.layout(uuid: m.uuid, orientation: m.orientation)
+        let all = monitors()
+        let span = spanAll()
+        return all.enumerated().map { i, m in
+            let owner = ZoneLayout.owner(of: m, in: all, span: span)
+            let l = screenLayouts.layout(uuid: owner.uuid, orientation: owner.orientation)
             return MonitorInfo(index: i + 1, name: m.name, uuid: m.uuid, width: m.width, height: m.height,
                                isMain: m.isMain, layoutID: l.id, layoutName: l.name)
         }
