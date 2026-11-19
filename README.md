@@ -24,6 +24,7 @@ Hephaestus lives in your menu bar. By default each screen is divided into three 
 - **Keyboard navigation**: snap to first/middle/last zone, step through zones, or move by position and expand across zones
 - **Window memory**: restores a window's size when you drag it out of a zone, re-applies zones when displays or layouts change, puts new windows in their app's last zone
 - **Cycle windows** stacked in one zone, and **rotate** all windows across monitors
+- **Stack hover** (opt-in, Windows tab): a count badge on the front window of a zone holding several windows; hover it or the title bar to list them (app icon, name, title) and click one to bring it forward. No extra permission. [Design mock](docs/mocks/stack-hover.png)
 - **Window eligibility**: dialogs, utility windows, sheets and fullscreen windows are left alone by default; exclude apps by name
 - **Command line**: `hephaestus-cli` controls the running app
 - Overlay options: show zones on all screens or only the one under the cursor, system or custom colors (follows light/dark mode), opacity, zone numbers

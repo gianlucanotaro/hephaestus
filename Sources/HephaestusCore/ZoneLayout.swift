@@ -29,6 +29,7 @@ enum Prefs {
         registerIndicatorDefaults()
         registerRotationDefaults()
         registerNewWindowDefaults()
+        registerStackHoverDefaults()
         registerShortcutDefaults()
         registerUpdateDefaults()
         UserDefaults.standard.register(defaults: [

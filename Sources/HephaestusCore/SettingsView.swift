@@ -87,6 +87,7 @@ struct WindowsTab: View {
         Section { WindowStateSettings() }
         Section { NewWindowPlacementSettings() }
         Section { ZoneCycleSettings() }
+        Section { StackHoverSettings() }
         Section { RotationSettingsView() }
     }
 }
