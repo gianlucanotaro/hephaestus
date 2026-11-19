@@ -137,6 +137,8 @@ struct GeneralSettingsView: View {
             }
         }
 
+        UpdateSettingsSection()
+
         Section {
             Text("About").font(.headline)
             Text("Hephaestus \(version)")

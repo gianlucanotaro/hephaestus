@@ -39,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         zoneCycling.start()
         layoutHotkeys.start()
         cliServer.start()
+        UpdateController.shared.start()
 
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
                                                object: nil, queue: .main) { [weak self] _ in self?.rebuildMenu() }
@@ -89,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Show Zones", action: #selector(showZones), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
+        UpdateMenu.addItem(to: menu)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Hephaestus", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }

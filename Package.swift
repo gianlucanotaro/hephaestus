@@ -10,6 +10,8 @@ let package = Package(
         .target(name: "HephaestusIPC", path: "Sources/HephaestusIPC"),
         .target(name: "HephaestusCore", dependencies: ["HephaestusIPC"], path: "Sources/HephaestusCore"),
         .executableTarget(name: "hephaestus-cli", dependencies: ["HephaestusIPC"], path: "Sources/hephaestus-cli"),
+        // Release tooling only (keygen / sign / verify of update zips); never copied into the app bundle.
+        .executableTarget(name: "hephaestus-sign", path: "Sources/hephaestus-sign"),
         .executableTarget(name: "Hephaestus", dependencies: ["HephaestusCore"], path: "Sources/Hephaestus"),
         .testTarget(name: "HephaestusCoreTests", dependencies: ["HephaestusCore", "HephaestusIPC"], path: "Tests/HephaestusCoreTests"),
         .testTarget(name: "HephaestusIPCTests", dependencies: ["HephaestusIPC"], path: "Tests/HephaestusIPCTests"),
