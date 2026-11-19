@@ -39,11 +39,14 @@ enum MultiZoneModifier: String, CaseIterable {
 final class DragSnapController {
     private let overlay: Overlay
     private var monitor: Any?
+    private let wheelCycler = WheelLayoutCycler()
+    private let swallower = ScrollSwallower()
 
     private var tracked: AXUIElement?
     private var startFrame: CGRect?
     private var checksWithoutMove = 0
     private var isWindowDrag = false
+    private var dragPreSnap: CGRect?   // pre-snap frame (AppKit) of a tracked window being dragged out
     private var toggled = false
     private var multiToggled = false   // middle mouse button toggles multi-zone spanning
 
@@ -54,12 +57,22 @@ final class DragSnapController {
     /// Zones collected while multi-zone mode is on; cleared when it turns off or the cursor changes screen.
     private var accumulated: Set<ZoneIndex> = []
 
+    /// True while a window drag is in progress (used to skip the zone flash on layout switch).
+    private(set) static var isDragging = false
+
     init(overlay: Overlay) { self.overlay = overlay }
 
     func start() {
         guard monitor == nil else { return }
-        let mask: NSEvent.EventTypeMask = [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .otherMouseDown, .flagsChanged]
+        swallower.handler = { [weak self] event in self?.wheel(event) ?? false }
+        let mask: NSEvent.EventTypeMask = [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .otherMouseDown, .flagsChanged, .scrollWheel]
         monitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in self?.handle(event) }
+        // Layout hotkeys (#8) change the screen's layout mid-drag: rebuild the drag overlay and selection for it.
+        NotificationCenter.default.addObserver(forName: ScreenLayoutStore.didChange, object: nil, queue: .main) { [weak self] _ in
+            guard let self, self.isWindowDrag, !self.overlayScreenIDs.isEmpty else { return }
+            self.overlayScreenIDs = []   // forces refresh() to call showDrag again
+            self.refresh()
+        }
     }
 
     private func handle(_ event: NSEvent) {
@@ -77,8 +90,17 @@ final class DragSnapController {
             refresh()
         case .flagsChanged:
             if isWindowDrag { refresh() }
+        case .scrollWheel:
+            if !swallower.isEnabled { wheel(event) }   // with the tap active it already handled this event
         default: break
         }
+    }
+
+    /// Wheel cycling (#9): only while zones are visible during a window drag. Returns true to swallow the event.
+    @discardableResult
+    private func wheel(_ event: NSEvent) -> Bool {
+        guard Prefs.cycleLayoutsWithWheel, isWindowDrag, !overlayScreenIDs.isEmpty else { return false }
+        return wheelCycler.handle(event)
     }
 
     /// Mouse went down: remember the window under the cursor (if any).
@@ -107,6 +129,9 @@ final class DragSnapController {
             let resized = abs(now.width - start.width) > 2 || abs(now.height - start.height) > 2
             if moved && !resized {
                 isWindowDrag = true
+                unsnapIfTracked(window, start: start)
+                Self.isDragging = true
+                if Prefs.cycleLayoutsWithWheel { swallower.enable() }   // on failure events pass through unswallowed
             } else {
                 checksWithoutMove += 1
                 if resized || checksWithoutMove > 40 { tracked = nil }   // stop polling AX
@@ -124,6 +149,17 @@ final class DragSnapController {
         let selected = selection(on: screen)
         guard let rect = ZoneLayout.boundingRect(of: selected, in: ZoneLayout.zones(for: screen)) else { return }
         WindowMover.move(window, toAppKitRect: rect)
+        WindowTracker.shared.register(window: window, zones: selected, screen: screen,
+                                      currentFrame: dragPreSnap ?? startFrame.map(ZoneLayout.fromAX) ?? rect,
+                                      snappedFrame: rect)
+    }
+
+    /// A tracked (snapped) window started moving: forget its zone and, per setting, restore its pre-snap size.
+    private func unsnapIfTracked(_ window: AXUIElement, start: CGRect) {
+        let tracker = WindowTracker.shared
+        guard tracker.record(for: window) != nil else { return }
+        dragPreSnap = tracker.unsnap(window, startFrame: ZoneLayout.fromAX(start), cursor: NSEvent.mouseLocation,
+                                     restoreSize: Prefs.restoreSizeOnUnsnap)
     }
 
     private var isMultiZone: Bool {
@@ -133,8 +169,7 @@ final class DragSnapController {
     /// Zones that would receive the window if dropped now: the hovered zone(s), plus every zone
     /// visited so far while multi-zone mode is on.
     private func selection(on screen: NSScreen) -> Set<ZoneIndex> {
-        let hovered = ZoneLayout.selection(at: NSEvent.mouseLocation, in: ZoneLayout.zones(for: screen), gap: Prefs.gap,
-                                         overlap: Prefs.overlapResolution)
+        let hovered = ZoneLayout.selection(at: NSEvent.mouseLocation, on: screen)
         guard isMultiZone else { accumulated = []; return hovered }
         accumulated.formUnion(hovered)
         return accumulated
@@ -154,7 +189,7 @@ final class DragSnapController {
             hideOverlay()
             return
         }
-        let screens = Prefs.showZonesOnAllScreens ? NSScreen.screens : [screen]
+        let screens = Prefs.showZonesOnAllScreens ? ZoneLayout.surfaceScreens() : [screen]
         let ids = screens.map(\.displayID)
         if ids != overlayScreenIDs {
             overlay.showDrag(on: screens)
@@ -181,15 +216,19 @@ final class DragSnapController {
     }
 
     private func screen(at point: CGPoint) -> NSScreen? {
-        NSScreen.screens.first { $0.frame.contains(point) }
+        ZoneLayout.surfaceScreen(at: point)
     }
 
     private func reset() {
         hideOverlay()
         tracked = nil
         startFrame = nil
+        dragPreSnap = nil
         checksWithoutMove = 0
         isWindowDrag = false
+        Self.isDragging = false
+        swallower.disable()
+        wheelCycler.reset()
         toggled = false
         multiToggled = false
     }

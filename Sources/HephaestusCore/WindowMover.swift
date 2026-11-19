@@ -34,15 +34,25 @@ enum WindowMover {
         guard WindowEligibility.canSnap(window: window) else { NSSound.beep(); return false }
 
         guard let current = frame(of: window),
-              let screen = ZoneLayout.screen(containing: ZoneLayout.fromAX(current)),
+              let hostScreen = ZoneLayout.screen(containing: ZoneLayout.fromAX(current)),
+              case let screen = ZoneLayout.surfaceOwner(of: hostScreen),
               case let zones = ZoneLayout.zones(for: screen),
               case let index = pick(zones.count),
               zones.indices.contains(index)
         else { return false }
         let target = zones[index]
 
-        move(window, toAppKitRect: target)
+        snap(window, toAppKitRect: target, zones: [index], on: screen, from: ZoneLayout.fromAX(current))
         return true
+    }
+
+    /// Move a window into zones AND record it with the `WindowTracker` (so unsnap-on-drag, re-apply, cycling and
+    /// keyboard navigation know about it). Every "put a window into zones" path should use this.
+    /// `currentFrame` is the window's AppKit-space frame BEFORE the move.
+    static func snap(_ window: AXUIElement, toAppKitRect rect: CGRect, zones: Set<ZoneIndex>, on screen: NSScreen,
+                     from currentFrame: CGRect) {
+        move(window, toAppKitRect: rect)
+        WindowTracker.shared.register(window: window, zones: zones, screen: screen, currentFrame: currentFrame, snappedFrame: rect)
     }
 
     /// Move/resize a window to an AppKit-space rect.

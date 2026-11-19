@@ -17,8 +17,19 @@ enum Prefs {
     static let showNumbersKey = "overlayShowNumbers"
 
     static func register() {
+        ShortcutMigration.run()
         registerLayoutDefaults()
         registerEligibilityDefaults()
+        registerSpacingDefaults()
+        registerKeyboardNavDefaults()
+        registerWindowStateDefaults()
+        registerZoneCycleDefaults()
+        registerLayoutHotkeyDefaults()
+        registerWheelCycleDefaults()
+        registerIndicatorDefaults()
+        registerRotationDefaults()
+        registerNewWindowDefaults()
+        registerShortcutDefaults()
         UserDefaults.standard.register(defaults: [
             aspectWKey: 16.0, aspectHKey: 9.0, gapKey: 8.0, dragActivationKey: DragActivation.shift.rawValue,
             multiZoneModifierKey: MultiZoneModifier.control.rawValue, showAllScreensKey: false, useSystemColorsKey: true,
@@ -77,7 +88,8 @@ enum ZoneLayout {
     }
 
     /// How close (in points) the cursor must be to the shared edge of two adjacent zones to select both.
-    static let edgeThreshold: CGFloat = 24
+    /// Backed by `Prefs.edgeThreshold` (default 24).
+    static var edgeThreshold: CGFloat { Prefs.edgeThreshold }
 
     /// Pure hit-test: the zone under `point` (the gap counts as part of the nearest zone), plus every
     /// zone adjacent to it whose facing edge is within `edgeThreshold` of the point. Empty if outside all zones.
@@ -113,18 +125,29 @@ enum ZoneLayout {
 
     /// The layout in effect for `screen`. Single entry point for "which layout applies here";
     /// per-display assignment (by display UUID) with orientation defaults; see `ScreenLayoutStore`.
+    /// With "span across screens" on, the representative (first) screen's layout applies to the whole surface.
     static func layout(for screen: NSScreen) -> Layout {
-        ScreenLayoutStore.shared.layout(for: screen)
+        ScreenLayoutStore.shared.layout(for: surfaceOwner(of: screen))
     }
 
     /// Zones for one screen, in AppKit coordinates (origin bottom-left of primary screen), by `ZoneIndex`.
     static func zones(for screen: NSScreen) -> [CGRect] {
-        zones(layout: layout(for: screen), in: screen.visibleFrame, centerAspect: Prefs.aspect, gap: Prefs.gap)
+        let layout = layout(for: screen)
+        return zones(layout: layout, in: surfaceFrame(for: screen), centerAspect: Prefs.aspect, gap: effectiveGap(for: layout))
+    }
+
+    /// Zone gap in effect on `screen` (the per-layout gap of the layout that applies there).
+    static func gap(for screen: NSScreen) -> CGFloat { effectiveGap(for: layout(for: screen)) }
+
+    /// Hit-test `point` against `screen`'s zones using the same layout, gap and overlap policy that drew them.
+    /// The one entry point for drag hit-testing, so overlay, highlight and snap cannot disagree.
+    static func selection(at point: CGPoint, on screen: NSScreen, overlap: OverlapResolution = Prefs.overlapResolution) -> Set<ZoneIndex> {
+        selection(at: point, in: zones(for: screen), gap: gap(for: screen), overlap: overlap)
     }
 
     /// Every connected screen with its zones.
     static func allZones() -> [(screen: NSScreen, zones: [CGRect])] {
-        NSScreen.screens.map { ($0, zones(for: $0)) }
+        surfaceScreens().map { ($0, zones(for: $0)) }
     }
 
     /// The screen containing most of an AppKit-space rect, else the main screen.

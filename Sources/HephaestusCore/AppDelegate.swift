@@ -5,11 +5,19 @@ import UniformTypeIdentifiers
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let screenMenu = ScreenLayoutMenu()
+    private let gridEditorMenu = GridEditorMenu()
     private var statusItem: NSStatusItem!
     private let overlay = Overlay()
-    private let hotKeys = HotKeys()
+    private let hotKeys = HotKeys.shared
+    private lazy var keyboardNav = KeyboardNavController(hotKeys: hotKeys)
     private lazy var dragSnap = DragSnapController(overlay: overlay)
+    private let rotation = RotationController()
+    private lazy var previewHotkey = PreviewHotkeyController(hotKeys: hotKeys) { [weak self] in self?.overlay.toggle() }
+    private lazy var zoneCycling = ZoneCycleController(hotKeys: hotKeys)
+    private lazy var layoutHotkeys = LayoutHotkeyRegistrar(hotKeys: hotKeys, overlay: overlay)
+    private let layoutIndicator = LayoutIndicator()
     private var settingsWindow: NSWindow?
+    private lazy var cliServer = CLIServer(handler: CLIHandler(openSettings: { [weak self] in self?.openSettings() }).handle)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Prefs.register()
@@ -21,11 +29,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ScreenLayoutStore.shared.start()
         rebuildMenu()
         dragSnap.start()
+        WindowTracker.shared.start()
+        rotation.start()
+        NewWindowPlacement.shared.start()
+        layoutIndicator.start()
 
-        hotKeys.register(keyCode: kVK_LeftArrow) { WindowMover.snapFrontWindow(slot: .first) }
-        hotKeys.register(keyCode: kVK_UpArrow) { WindowMover.snapFrontWindow(slot: .middle) }
-        hotKeys.register(keyCode: kVK_RightArrow) { WindowMover.snapFrontWindow(slot: .last) }
-        hotKeys.register(keyCode: kVK_ANSI_Z) { [weak self] in self?.overlay.toggle() }
+        keyboardNav.start()
+        previewHotkey.start()
+        zoneCycling.start()
+        layoutHotkeys.start()
+        cliServer.start()
 
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
                                                object: nil, queue: .main) { [weak self] _ in self?.rebuildMenu() }
@@ -57,12 +70,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let current = screenMenu.addLayoutItems(to: layoutsMenu)
         let currentLayout = current.map { ZoneLayout.layout(for: $0) } ?? store.active
         layoutsMenu.addItem(.separator())
+        gridEditorMenu.addItems(to: layoutsMenu, screen: current)
+        layoutsMenu.addItem(.separator())
         layoutsMenu.addItem(withTitle: "Import Layout…", action: #selector(importLayout), keyEquivalent: "").target = self
         layoutsMenu.addItem(withTitle: "Export Layout…", action: #selector(exportLayout), keyEquivalent: "").target = self
         let layoutsItem = NSMenuItem(title: "Layout (\(current?.localizedName ?? "this screen")): \(currentLayout.name)", action: nil, keyEquivalent: "")
         layoutsItem.submenu = layoutsMenu
         menu.addItem(layoutsItem)
         menu.addItem(screenMenu.defaultsItem())
+        menu.addItem(LayoutGapMenu.shared.menuItem())
         menu.addItem(.separator())
         for index in currentLayout.zones.indices {
             let item = NSMenuItem(title: "Snap window → \(Layout.zoneTitle(index))", action: #selector(snap(_:)), keyEquivalent: "")

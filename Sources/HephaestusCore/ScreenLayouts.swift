@@ -134,7 +134,10 @@ extension ZoneLayout {
         return NSScreen.screens.first { $0.frame.contains(p) } ?? NSScreen.main
     }
 
-    static func setLayout(id: String, for screen: NSScreen) { ScreenLayoutStore.shared.setLayout(id: id, for: screen) }
+    /// Assigns a layout to the screen's surface (the representative screen when spanning, so the change is visible).
+    static func setLayout(id: String, for screen: NSScreen) {
+        ScreenLayoutStore.shared.setLayout(id: id, for: surfaceOwner(of: screen))
+    }
 }
 
 /// Menu builders and actions for per-screen layout selection.
