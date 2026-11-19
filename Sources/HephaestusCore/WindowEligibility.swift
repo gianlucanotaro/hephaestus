@@ -126,7 +126,7 @@ struct EligibilitySettingsView: View {
             Toggle("Snap floating / utility windows", isOn: $allowFloating)
             Toggle("Snap child windows", isOn: $allowChildWindows)
             Text("Only standard windows snap by default. Sheets, popups and fullscreen windows never do.")
-                .font(.footnote).foregroundStyle(.secondary)
+                .settingsHint()
             Picker("Overlapping zones", selection: $overlap) {
                 ForEach(OverlapResolution.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
             }

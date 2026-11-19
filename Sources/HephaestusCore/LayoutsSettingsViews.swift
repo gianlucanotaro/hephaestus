@@ -28,7 +28,7 @@ struct ScreenLayoutsSettingsView: View {
                     ForEach(layouts) { Text($0.name).tag($0.id) }
                 }
             }
-            Text("New screens get the default for their orientation.").font(.footnote).foregroundStyle(.secondary)
+            Text("New screens get the default for their orientation.").settingsHint()
             Picker("Default for landscape screens", selection: defaultBinding(.landscape)) {
                 ForEach(layouts) { Text($0.name).tag($0.id) }
             }
@@ -90,7 +90,7 @@ struct LayoutEditorButtons: View {
                     if !LayoutEditors.open(on: s, editing: layout) { GridEditor.open(on: s) }
                 }
             }
-            Text("Import / export layouts from the menu bar's Layout submenu.").font(.footnote).foregroundStyle(.secondary)
+            Text("Import / export layouts from the menu bar's Layout submenu.").settingsHint()
         }
     }
 }

@@ -140,7 +140,7 @@ struct ZoneCycleSettings: View {
             Text("Zone cycling").font(.headline)
             Toggle("Cycle windows within a zone", isOn: $enabled)
             Text("Next / previous window snapped to the focused window's zone (shortcuts: Shortcuts tab).")
-                .font(.footnote).foregroundStyle(.secondary)
+                .settingsHint()
         }
     }
 }

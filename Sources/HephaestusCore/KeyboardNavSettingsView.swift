@@ -22,7 +22,7 @@ struct KeyboardNavSettingsView: View {
                 ShortcutRow(id: .directLast)
             case .zoneIndex:
                 ShortcutRow(id: .navMove)
-                Text("Only ← and → are used: previous / next zone.").font(.footnote).foregroundStyle(.secondary)
+                Text("Only ← and → are used: previous / next zone.").settingsHint()
             case .relative:
                 ShortcutRow(id: .navMove)
                 ShortcutRow(id: .navExpand)
@@ -30,7 +30,7 @@ struct KeyboardNavSettingsView: View {
             if current != .direct {
                 Toggle("Move across all screens", isOn: $crossScreens)
                 Text("Off: stay on the current screen (zone-index mode wraps around). On: continue onto the adjacent screen in that direction.")
-                    .font(.footnote).foregroundStyle(.secondary)
+                    .settingsHint()
             }
             Text("""
                 macOS Sequoia has its own window tiling shortcuts (Fn/Globe+Control+arrows, and in some versions \
@@ -38,7 +38,7 @@ struct KeyboardNavSettingsView: View {
                 record other modifiers (e.g. ⌃⌥⌘) or turn the system ones off in System Settings → Keyboard → \
                 Keyboard Shortcuts → Windows (or Desktop & Dock → Windows → Tile by dragging / Keyboard shortcuts).
                 """)
-                .font(.footnote).foregroundStyle(.secondary)
+                .settingsHint()
         }
     }
 }
