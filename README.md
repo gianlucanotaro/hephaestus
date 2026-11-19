@@ -11,7 +11,7 @@
 
 Hephaestus lives in your menu bar. By default each screen is divided into three zones: **left**, a **16:9 center**, and **right**. Drag a window to a zone, or use a hotkey, and it snaps into place. It's built for ultrawide monitors, where a maximized window is far too big.
 
-> **Status:** early and in active development. See the [open issues](../../issues) for the roadmap toward FancyZones parity.
+> **Status:** early (0.x). Feature parity with Microsoft PowerToys' FancyZones is the goal, and the core is in place. Bug reports and ideas are welcome in the [issues](../../issues).
 
 ## Features
 
@@ -27,12 +27,31 @@ Hephaestus lives in your menu bar. By default each screen is divided into three 
 - **Window eligibility**: dialogs, utility windows, sheets and fullscreen windows are left alone by default; exclude apps by name
 - **Command line**: `hephaestus-cli` controls the running app
 - Overlay options: show zones on all screens or only the one under the cursor, system or custom colors (follows light/dark mode), opacity, zone numbers
-- **Global hotkeys** (no extra permissions beyond Accessibility)
+- **Global hotkeys** (no extra permissions beyond Accessibility), each rebindable with a built-in **shortcut recorder** that warns about duplicates and combinations macOS refuses
+- **Settings window** with six tabs, and **launch at login**
 
 ## Requirements
 
 - macOS 13 or later
 - Command Line Tools (`xcode-select --install`). Full Xcode isn't needed.
+
+## Install
+
+1. Download `Hephaestus-<version>.zip` from the [latest release](../../releases/latest) and unzip it.
+2. Move `Hephaestus.app` to `/Applications` and open it. A menu bar icon appears (there is no Dock icon).
+3. Grant **Accessibility** when asked: System Settings → Privacy & Security → Accessibility. Hephaestus can't move windows without it. Relaunch the app once after granting it.
+
+The app is **not notarized** yet, so macOS blocks the first launch ("the developer cannot be verified"). Either open **System Settings → Privacy & Security** and click **Open Anyway**, or run this once:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Hephaestus.app
+```
+
+To use the command-line tool, link it onto your `PATH`:
+
+```bash
+ln -s /Applications/Hephaestus.app/Contents/MacOS/hephaestus-cli /usr/local/bin/hephaestus-cli
+```
 
 ## Build and run
 
@@ -139,6 +158,7 @@ Layouts are per display, not per Space or virtual desktop: macOS has no public A
 swift build        # quick compile check
 ./test.sh          # unit tests (use this, not bare `swift test`)
 ./build.sh         # release build into build/Hephaestus.app, including the CLI
+./release.sh       # build + zip build/Hephaestus-<version>.zip (add --publish from main to create the GitHub release)
 ./assets/make-icns.sh   # regenerate the app icon from assets/logo.svg (needs librsvg)
 ```
 

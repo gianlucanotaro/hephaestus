@@ -8,6 +8,7 @@ No Xcode; only Command Line Tools are installed, so `xcodebuild` is unavailable.
 
 ```bash
 ./build.sh                    # swift build -c release → build/Hephaestus.app (signed with "Hephaestus Dev" if present, else ad-hoc)
+./release.sh                  # build + zip build/Hephaestus-<version>.zip; `--publish` (from a clean, synced main) creates the GitHub release v<version>. Never run --publish unless the developer asks
 open build/Hephaestus.app     # LSUIElement app: menu bar icon only, no Dock icon
 swift build                   # quick compile check
 ./test.sh                     # unit tests (Swift Testing; see Tests below)
