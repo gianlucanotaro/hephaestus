@@ -31,6 +31,7 @@ enum WindowMover {
               let win = ref
         else { return false }
         let window = win as! AXUIElement
+        guard WindowEligibility.canSnap(window: window) else { NSSound.beep(); return false }
 
         guard let current = frame(of: window),
               let screen = ZoneLayout.screen(containing: ZoneLayout.fromAX(current)),
