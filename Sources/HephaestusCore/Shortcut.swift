@@ -114,6 +114,7 @@ enum RecorderPolicy {
 enum ShortcutID: String, CaseIterable {
     case directFirst, directMiddle, directLast, navMove, navExpand
     case preview, cycleNext, cyclePrevious, layoutNumbers, openEditor, rotation
+    case pinWindow
 }
 
 /// The key combinations an id occupies (several for groups such as the four arrows) and whether it is in effect.

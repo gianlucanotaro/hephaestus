@@ -20,6 +20,7 @@ import Testing
         let layoutMods = HotkeyModifiers.controlOptionCommand.carbon
         out += LayoutHotkeys.validNumbers.map { (LayoutHotkeyKeys.digitKeyCodes[$0], layoutMods) }
         out.append((LayoutHotkeyKeys.keyCode(forLetter: "E")!, layoutMods))         // open editor
+        out.append((Int(kVK_ANSI_P), controlKey | optionKey))                       // pin window on top
         return out
     }
 

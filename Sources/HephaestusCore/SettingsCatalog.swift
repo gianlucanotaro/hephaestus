@@ -21,7 +21,7 @@ enum SettingsCatalog {
         add(.windows, [Prefs.allowDialogsKey, Prefs.allowFloatingKey, Prefs.allowChildWindowsKey, Prefs.excludedAppsKey,
                        Prefs.overlapResolutionKey, Prefs.restoreSizeOnUnsnapKey, Prefs.reapplyOnDisplayChangeKey,
                        Prefs.reapplyOnLayoutChangeKey, Prefs.newWindowLastZoneKey, Prefs.newWindowActiveScreenKey,
-                       Prefs.zoneCycleEnabledKey, Prefs.rotationEnabledKey])
+                       Prefs.zoneCycleEnabledKey, Prefs.rotationEnabledKey, Prefs.pinnedWindowsEnabledKey])
         add(.appearance, [Prefs.useSystemColorsKey, Prefs.highlightColorKey, Prefs.inactiveColorKey, Prefs.borderColorKey,
                           Prefs.numberColorKey, Prefs.opacityKey, Prefs.showNumbersKey, Prefs.flashZonesKey,
                           Prefs.indicatorEnabledKey, Prefs.indicatorPositionKey, Prefs.indicatorTextColorKey,

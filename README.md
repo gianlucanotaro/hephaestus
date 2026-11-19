@@ -24,6 +24,7 @@ Hephaestus lives in your menu bar. By default each screen is divided into three 
 - **Keyboard navigation**: snap to first/middle/last zone, step through zones, or move by position and expand across zones
 - **Window memory**: restores a window's size when you drag it out of a zone, re-applies zones when displays or layouts change, puts new windows in their app's last zone
 - **Cycle windows** stacked in one zone, and **rotate** all windows across monitors
+- **Pin windows on top**: pin the focused window (menu bar item or ⌃⌥P); Hephaestus re-raises it when other windows cover it, without taking focus. An approximation, see known limitations
 - **Window eligibility**: dialogs, utility windows, sheets and fullscreen windows are left alone by default; exclude apps by name
 - **Command line**: `hephaestus-cli` controls the running app
 - Overlay options: show zones on all screens or only the one under the cursor, system or custom colors (follows light/dark mode), opacity, zone numbers
@@ -85,6 +86,7 @@ Run `./setup-signing.sh` once before your first build. Without it the app is ad-
 | Next / previous window in the same zone | ⌃⌥Page Down / ⌃⌥Page Up | Setting, on by default |
 | Apply layout number 0-9 to the screen under the cursor | ⌃⌥⌘0 ... ⌃⌥⌘9 | Assign numbers in Settings |
 | Open the layout editor for the screen under the cursor | ⌃⌥⌘E | |
+| Pin / unpin the focused window on top | ⌃⌥P | Setting, on by default; pins are not kept across restarts |
 | Rotate windows across monitors | Hold ⌥X, press ← or → | Off by default; enable in Settings |
 | Snap by dragging | Hold Shift while dragging a window | Configurable |
 | Span several zones | Drop near the edge between two zones, hold ⌃ while dragging, or middle-click | |
@@ -128,7 +130,7 @@ Open **Settings...** from the menu bar icon. The window has six tabs:
 - **General**: launch at login (needs the bundled, signed app; if macOS asks for approval, a button opens System Settings > General > Login Items), the Accessibility permission status with a shortcut to System Settings (relaunch after granting it, rotation and wheel cycling need event taps that only start with the permission), version
 - **Activation**: drag activation mode, multi-zone modifier, wheel layout cycling, show zones on all screens, adjacent-highlight distance
 - **Layouts**: layout per screen and landscape / portrait defaults, center aspect, default gap and gap per layout, span across screens, layout hotkey numbers, buttons for the grid / canvas editors
-- **Windows**: eligibility (dialogs, floating, child windows, excluded apps), overlapping-zone policy, window memory, new-window placement, zone cycling, rotation
+- **Windows**: eligibility (dialogs, floating, child windows, excluded apps), overlapping-zone policy, window memory, new-window placement, zone cycling, rotation, pinned windows
 - **Appearance**: overlay colors, opacity, zone numbers, flash on layout switch, layout-name popup (position, colors, size, duration)
 - **Shortcuts**: keyboard navigation mode and every hotkey with a recorder
 
@@ -151,6 +153,8 @@ Only public APIs are used.
 macOS sees one display per physical screen, so the menu bar, Dock, and Spaces are shared across zones, and a fullscreen window takes over the whole display. That's inherent to the zones approach.
 
 Layouts are per display, not per Space or virtual desktop: macOS has no public API for Spaces. Windows on other Spaces are not reachable through Accessibility, so rotation skips them.
+
+Pinned windows are an approximation: macOS has no public API to set another app's window level, so Hephaestus re-raises a pinned window with `AXRaise` (on app and focus changes, plus a 1 s safety check) without activating its app. It can flicker briefly, cannot sit above fullscreen apps, the menu bar, system UI or other apps' floating panels, and some apps ignore the raise. Pins are forgotten when the app quits or the window closes.
 
 ## Development
 

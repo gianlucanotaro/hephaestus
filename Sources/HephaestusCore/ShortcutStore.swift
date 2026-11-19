@@ -87,6 +87,8 @@ enum ShortcutSpecs {
                      modifiersKey: Prefs.editorHotkeyModifiersKey, defaultShortcut: Shortcut(keyCode: kVK_ANSI_E, modifiers: .controlOptionCommand)),
         ShortcutSpec(id: .rotation, title: "Rotate windows across monitors", kind: .rotation, keyCodeKey: Prefs.rotationKeyCodeKey,
                      modifiersKey: Prefs.rotationModifierKey, defaultShortcut: Shortcut(keyCode: kVK_ANSI_X, modifiers: .option)),
+        ShortcutSpec(id: .pinWindow, title: "Pin / unpin window on top", kind: .single, keyCodeKey: Prefs.pinHotkeyKeyCodeKey,
+                     modifiersKey: Prefs.pinHotkeyModifiersKey, defaultShortcut: Shortcut(keyCode: kVK_ANSI_P, modifiers: ctrlOpt)),
     ]
 
     static func spec(_ id: ShortcutID) -> ShortcutSpec { all.first { $0.id == id }! }
@@ -153,6 +155,7 @@ enum ShortcutStore {
             case .navExpand: active = mode == .relative
             case .cycleNext, .cyclePrevious: active = cycling
             case .rotation: active = rotation
+            case .pinWindow: active = defaults.object(forKey: Prefs.pinnedWindowsEnabledKey) as? Bool ?? true
             default: break
             }
             return ShortcutEntry(id: id, combos: combos(id, defaults: defaults), active: active)

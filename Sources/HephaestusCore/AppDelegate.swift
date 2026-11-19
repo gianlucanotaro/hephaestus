@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var zoneCycling = ZoneCycleController(hotKeys: hotKeys)
     private lazy var layoutHotkeys = LayoutHotkeyRegistrar(hotKeys: hotKeys, overlay: overlay)
     private let layoutIndicator = LayoutIndicator()
+    private let pinMenu = PinMenu()
+    private lazy var pinHotkey = PinHotkeyController(hotKeys: hotKeys)
     private var settingsWindow: NSWindow?
     private lazy var cliServer = CLIServer(handler: CLIHandler(openSettings: { [weak self] in self?.openSettings() }).handle)
 
@@ -38,6 +40,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         previewHotkey.start()
         zoneCycling.start()
         layoutHotkeys.start()
+        PinnedWindows.shared.start()
+        pinHotkey.start()
         cliServer.start()
 
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
@@ -87,6 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(item)
         }
         menu.addItem(.separator())
+        pinMenu.addItems(to: menu)
         menu.addItem(withTitle: "Show Zones", action: #selector(showZones), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(.separator())

@@ -88,6 +88,7 @@ struct WindowsTab: View {
         Section { NewWindowPlacementSettings() }
         Section { ZoneCycleSettings() }
         Section { RotationSettingsView() }
+        Section { PinnedWindowsSettings() }
     }
 }
 
@@ -139,6 +140,7 @@ struct ShortcutsTab: View {
             ShortcutRow(id: .layoutNumbers)
             ShortcutRow(id: .openEditor)
             ShortcutRow(id: .rotation)
+            ShortcutRow(id: .pinWindow)
             Text("Click a shortcut, then press the new combination. Esc cancels; Delete clears (where allowed). Every shortcut needs at least one modifier. Cycling and rotation shortcuts only work while those features are enabled (Windows tab).")
                 .settingsHint()
         }
