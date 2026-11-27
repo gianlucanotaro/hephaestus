@@ -58,12 +58,40 @@ enum WindowMover {
     /// Move/resize a window to an AppKit-space rect.
     static func move(_ window: AXUIElement, toAppKitRect target: CGRect) {
         let rect = ZoneLayout.toAX(target)
+        // Apps with AXEnhancedUserInterface animate and drop AX moves; switch it off for the duration (as other
+        // window managers do).
+        var pid: pid_t = 0
+        AXUIElementGetPid(window, &pid)
+        let app = AXUIElementCreateApplication(pid)
+        var enhanced: CFTypeRef?
+        let wasEnhanced = AXUIElementCopyAttributeValue(app, "AXEnhancedUserInterface" as CFString, &enhanced) == .success
+            && (enhanced as? Bool) == true
+        if wasEnhanced { AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, kCFBooleanFalse) }
+        defer { if wasEnhanced { AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue) } }
+
+        apply(window, rect)
+        // Verify: slow apps (Electron) or a clamped size can leave the window off target. Retry the position
+        // (the size may legitimately stay larger than the zone when the app has a minimum size).
+        for delay in [0.08, 0.25] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                guard let f = frame(of: window), abs(f.minX - rect.minX) > 2 || abs(f.minY - rect.minY) > 2
+                        || abs(f.width - rect.width) > 2 || abs(f.height - rect.height) > 2 else { return }
+                apply(window, rect)
+            }
+        }
+    }
+
+    private static func apply(_ window: AXUIElement, _ rect: CGRect) {
         var origin = rect.origin
         var size = rect.size
         // Size, position, size again: some apps clamp size based on the screen the window is on.
         setSize(window, &size)
         setPosition(window, &origin)
         setSize(window, &size)
+        // If the app clamped the size, the OS may have shifted the window to keep it on screen: reassert origin.
+        if let f = frame(of: window), abs(f.minX - origin.x) > 2 || abs(f.minY - origin.y) > 2 {
+            setPosition(window, &origin)
+        }
     }
 
     /// The window element that is `element` or contains it.
@@ -72,9 +100,47 @@ enum WindowMover {
         if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role) == .success,
            (role as? String) == kAXWindowRole as String { return element }
         var win: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXWindowAttribute as CFString, &win) == .success,
-              let w = win else { return nil }
-        return (w as! AXUIElement)
+        if AXUIElementCopyAttributeValue(element, kAXWindowAttribute as CFString, &win) == .success,
+           let w = win, CFGetTypeID(w) == AXUIElementGetTypeID() { return (w as! AXUIElement) }
+        // Some apps (Electron, Java, custom-drawn UIs) don't expose AXWindow: walk up AXParent instead.
+        var current = element
+        for _ in 0..<20 {
+            var parent: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(current, kAXParentAttribute as CFString, &parent) == .success,
+                  let p = parent, CFGetTypeID(p) == AXUIElementGetTypeID() else { return nil }
+            let up = p as! AXUIElement
+            var r: CFTypeRef?
+            if AXUIElementCopyAttributeValue(up, kAXRoleAttribute as CFString, &r) == .success,
+               (r as? String) == kAXWindowRole as String { return up }
+            current = up
+        }
+        return nil
+    }
+
+    /// Fallback when the AX hit-test fails: the topmost on-screen window under `axPoint` (AX coordinates),
+    /// matched to the owning app's AX window with the same frame.
+    static func window(atAXPoint axPoint: CGPoint) -> AXUIElement? {
+        guard let infos = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+                as? [[String: Any]] else { return nil }
+        for info in infos {
+            guard (info[kCGWindowLayer as String] as? Int) == 0,
+                  let pid = info[kCGWindowOwnerPID as String] as? pid_t,
+                  let b = info[kCGWindowBounds as String] as? [String: CGFloat],
+                  let x = b["X"], let y = b["Y"], let w = b["Width"], let h = b["Height"]
+            else { continue }
+            let bounds = CGRect(x: x, y: y, width: w, height: h)
+            guard bounds.contains(axPoint) else { continue }
+            let app = AXUIElementCreateApplication(pid)
+            var list: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &list) == .success,
+                  let windows = list as? [AXUIElement] else { return nil }
+            return windows.first { win in
+                guard let f = frame(of: win) else { return false }
+                return abs(f.minX - bounds.minX) < 3 && abs(f.minY - bounds.minY) < 3
+                    && abs(f.width - bounds.width) < 3 && abs(f.height - bounds.height) < 3
+            }
+        }
+        return nil
     }
 
     /// Window frame in AX (top-left origin) coordinates.
