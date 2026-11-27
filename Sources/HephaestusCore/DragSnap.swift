@@ -109,12 +109,21 @@ final class DragSnapController {
         guard AXIsProcessTrusted() else { return }
         let ax = ZoneLayout.toAX(CGRect(origin: NSEvent.mouseLocation, size: .zero)).origin
         var element: AXUIElement?
-        guard AXUIElementCopyElementAtPosition(AXUIElementCreateSystemWide(), Float(ax.x), Float(ax.y), &element) == .success,
-              let element, let window = WindowMover.window(containing: element)
-        else { return }
+        var found: AXUIElement?
+        if AXUIElementCopyElementAtPosition(AXUIElementCreateSystemWide(), Float(ax.x), Float(ax.y), &element) == .success,
+           let element { found = WindowMover.window(containing: element) }
+        guard let window = found ?? WindowMover.window(atAXPoint: ax) else { return }
         var pid: pid_t = 0
         AXUIElementGetPid(window, &pid)
-        guard pid != getpid(), WindowEligibility.canSnap(window: window) else { return }
+        guard pid != getpid() else { return }
+        guard WindowEligibility.canSnap(window: window) else {
+            let t = WindowEligibility.readTraits(window)
+            let app = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier ?? "pid \(pid)"
+            NSLog("Hephaestus: drag ignored for %@ (role=%@ subrole=%@ modal=%d parent=%d min=%d full=%d)", app,
+                  t.role ?? "nil", t.subrole ?? "nil", t.isModal ? 1 : 0, t.hasParentWindow ? 1 : 0,
+                  t.isMinimized ? 1 : 0, t.isFullScreen ? 1 : 0)
+            return
+        }
         tracked = window
         startFrame = WindowMover.frame(of: window)
     }
