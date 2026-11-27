@@ -65,10 +65,7 @@ enum RotationWindows {
         var result: [RotatableWindow] = []
         let me = ProcessInfo.processInfo.processIdentifier
         for app in NSWorkspace.shared.runningApplications where app.activationPolicy == .regular && app.processIdentifier != me {
-            let axApp = AXUIElementCreateApplication(app.processIdentifier)
-            var ref: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &ref) == .success,
-                  let windows = ref as? [AXUIElement] else { continue }
+            guard let windows = AX.windows(pid: app.processIdentifier) else { continue }
             for w in windows where RotationEligibility.isEligible(w) {
                 guard let ax = WindowMover.frame(of: w) else { continue }
                 let frame = ZoneLayout.fromAX(ax)

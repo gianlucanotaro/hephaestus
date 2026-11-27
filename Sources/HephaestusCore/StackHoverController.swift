@@ -110,18 +110,6 @@ final class StackHoverController {
 
     // MARK: - Data
 
-    private static func axBool(_ w: AXUIElement, _ attr: String) -> Bool {
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(w, attr as CFString, &ref) == .success else { return false }
-        return (ref as? Bool) ?? false
-    }
-
-    private static func axTitle(_ w: AXUIElement) -> String {
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(w, kAXTitleAttribute as CFString, &ref) == .success else { return "" }
-        return (ref as? String) ?? ""
-    }
-
     /// Front-to-back on-screen windows (pid, bounds, layer only; never the window name).
     private static func onScreenEntries() -> [StackMath.CGEntry] {
         guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else { return [] }
@@ -142,7 +130,7 @@ final class StackHoverController {
         for (i, rec) in tracked.enumerated() {
             guard let ax = WindowMover.frame(of: rec.element) else { continue }   // gone or unreadable
             items.append(.init(id: i, pid: rec.pid, screenUUID: rec.screenUUID, zones: rec.zones,
-                               frame: ZoneLayout.fromAX(ax), minimized: Self.axBool(rec.element, kAXMinimizedAttribute)))
+                               frame: ZoneLayout.fromAX(ax), minimized: AX.bool(rec.element, kAXMinimizedAttribute)))
             axFrames.append(ax)
         }
         let groups = StackMath.stacks(items)
@@ -157,7 +145,7 @@ final class StackHoverController {
             let members: [Member] = ordered.map { id in
                 let rec = tracked[id]
                 let app = NSRunningApplication(processIdentifier: rec.pid)
-                let live = Self.axTitle(rec.element)
+                let live = AX.title(of: rec.element)
                 return Member(element: rec.element, pid: rec.pid, appName: app?.localizedName ?? rec.bundleID,
                               title: live.isEmpty ? rec.titleHint : live, icon: app?.icon)
             }

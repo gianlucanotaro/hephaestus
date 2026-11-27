@@ -24,13 +24,13 @@ struct SettingsView: View {
 }
 
 struct ActivationTab: View {
-    @AppStorage(Prefs.dragActivationKey) private var dragActivation = DragActivation.shift.rawValue
-    @AppStorage(Prefs.multiZoneModifierKey) private var multiZoneModifier = MultiZoneModifier.control.rawValue
-    @AppStorage(Prefs.showAllScreensKey) private var showAllScreens = false
+    @AppStorage(Prefs.dragActivationKey) private var dragActivation = Prefs.defaultDragActivation
+    @AppStorage(Prefs.multiZoneModifierKey) private var multiZoneModifier = Prefs.defaultMultiZoneModifier
+    @AppStorage(Prefs.showAllScreensKey) private var showAllScreens = Prefs.defaultShowAllScreens
 
     var body: some View {
         Section {
-            Text("Dragging").font(.headline)
+            Text("Dragging").settingsHeading()
             Picker("Drag to snap", selection: $dragActivation) {
                 ForEach(DragActivation.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
             }
@@ -48,15 +48,15 @@ struct ActivationTab: View {
 }
 
 struct LayoutsTab: View {
-    @AppStorage(Prefs.aspectWKey) private var aspectW = 16.0
-    @AppStorage(Prefs.aspectHKey) private var aspectH = 9.0
-    @AppStorage(Prefs.gapKey) private var gap = 8.0
+    @AppStorage(Prefs.aspectWKey) private var aspectW = Prefs.defaultAspectW
+    @AppStorage(Prefs.aspectHKey) private var aspectH = Prefs.defaultAspectH
+    @AppStorage(Prefs.gapKey) private var gap = Prefs.defaultGap
     var onChange: () -> Void
 
     var body: some View {
         Section { ScreenLayoutsSettingsView() }
         Section {
-            Text("Zones").font(.headline)
+            Text("Zones").settingsHeading()
             LabeledContent("Center aspect (Ultrawide 3-way)") {
                 HStack(spacing: 6) {
                     TextField("W", value: $aspectW, format: .number).frame(width: 48).multilineTextAlignment(.trailing)
@@ -93,13 +93,13 @@ struct WindowsTab: View {
 }
 
 struct AppearanceTab: View {
-    @AppStorage(Prefs.useSystemColorsKey) private var useSystemColors = true
-    @AppStorage(Prefs.highlightColorKey) private var highlightColor = "#0A84FF"
-    @AppStorage(Prefs.inactiveColorKey) private var inactiveColor = "#8E8E93"
-    @AppStorage(Prefs.borderColorKey) private var borderColor = "#0A84FF"
-    @AppStorage(Prefs.numberColorKey) private var numberColor = "#FFFFFF"
-    @AppStorage(Prefs.opacityKey) private var opacity = 0.5
-    @AppStorage(Prefs.showNumbersKey) private var showNumbers = true
+    @AppStorage(Prefs.useSystemColorsKey) private var useSystemColors = Prefs.defaultUseSystemColors
+    @AppStorage(Prefs.highlightColorKey) private var highlightColor = Prefs.defaultHighlightColor
+    @AppStorage(Prefs.inactiveColorKey) private var inactiveColor = Prefs.defaultInactiveColor
+    @AppStorage(Prefs.borderColorKey) private var borderColor = Prefs.defaultBorderColor
+    @AppStorage(Prefs.numberColorKey) private var numberColor = Prefs.defaultNumberColor
+    @AppStorage(Prefs.opacityKey) private var opacity = Prefs.defaultOpacity
+    @AppStorage(Prefs.showNumbersKey) private var showNumbers = Prefs.defaultShowNumbers
     @AppStorage(Prefs.flashZonesKey) private var flash = true
 
     private func colorBinding(_ hex: Binding<String>) -> Binding<Color> {
@@ -109,7 +109,7 @@ struct AppearanceTab: View {
 
     var body: some View {
         Section {
-            Text("Zone overlay").font(.headline)
+            Text("Zone overlay").settingsHeading()
             Toggle("Use system colors (follows light/dark mode)", isOn: $useSystemColors)
             if !useSystemColors {
                 ColorPicker("Highlight", selection: colorBinding($highlightColor))
@@ -133,7 +133,7 @@ struct ShortcutsTab: View {
     var body: some View {
         Section { KeyboardNavSettingsView() }
         Section {
-            Text("Other shortcuts").font(.headline)
+            Text("Other shortcuts").settingsHeading()
             ShortcutRow(id: .preview)
             ShortcutRow(id: .cycleNext)
             ShortcutRow(id: .cyclePrevious)

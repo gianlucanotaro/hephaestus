@@ -89,14 +89,7 @@ final class ZoneCycleController {
     }
 
     private func cycle(_ direction: ZoneCycleDirection) {
-        guard WindowMover.ensureAccessibility(prompt: false),
-              let app = NSWorkspace.shared.frontmostApplication,
-              app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(AXUIElementCreateApplication(app.processIdentifier),
-                                            kAXFocusedWindowAttribute as CFString, &ref) == .success,
-              let focused = ref, CFGetTypeID(focused) == AXUIElementGetTypeID() else { NSSound.beep(); return }
-        let current = focused as! AXUIElement
+        guard let current = WindowMover.focusedWindow(prompt: false) else { return }
         let tracker = WindowTracker.shared
         // A window spanning several zones cycles within its first zone.
         guard let rec = tracker.record(for: current), let zone = rec.zones.first else { NSSound.beep(); return }

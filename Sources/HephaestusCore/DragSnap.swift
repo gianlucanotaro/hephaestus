@@ -82,10 +82,10 @@ final class DragSnapController {
         case .leftMouseUp: end()
         case .otherMouseDown:
             guard isWindowDrag else { break }
-            if Prefs.dragActivation != .button, event.buttonNumber == 2 {
-                multiToggled.toggle()
-            } else if Prefs.dragActivation == .button {
-                toggled.toggle()
+            switch DragSnapMath.toggle(buttonNumber: event.buttonNumber, activation: Prefs.dragActivation) {
+            case .multiZone: multiToggled.toggle()
+            case .activation: toggled.toggle()
+            case .none: break
             }
             refresh()
         case .flagsChanged:
@@ -115,17 +115,22 @@ final class DragSnapController {
         guard let window = found ?? WindowMover.window(atAXPoint: ax) else { return }
         var pid: pid_t = 0
         AXUIElementGetPid(window, &pid)
-        guard pid != getpid() else { return }
+        guard pid != ProcessInfo.processInfo.processIdentifier else { return }
         guard WindowEligibility.canSnap(window: window) else {
-            let t = WindowEligibility.readTraits(window)
-            let app = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier ?? "pid \(pid)"
-            NSLog("Hephaestus: drag ignored for %@ (role=%@ subrole=%@ modal=%d parent=%d min=%d full=%d)", app,
-                  t.role ?? "nil", t.subrole ?? "nil", t.isModal ? 1 : 0, t.hasParentWindow ? 1 : 0,
-                  t.isMinimized ? 1 : 0, t.isFullScreen ? 1 : 0)
+            logIneligible(window, pid: pid)
             return
         }
         tracked = window
         startFrame = WindowMover.frame(of: window)
+    }
+
+    /// Diagnostic for a drag on a window `WindowEligibility` refused.
+    private func logIneligible(_ window: AXUIElement, pid: pid_t) {
+        let t = WindowEligibility.readTraits(window)
+        let app = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier ?? "pid \(pid)"
+        NSLog("Hephaestus: drag ignored for %@ (role=%@ subrole=%@ modal=%d parent=%d min=%d full=%d)", app,
+              t.role ?? "nil", t.subrole ?? "nil", t.isModal ? 1 : 0, t.hasParentWindow ? 1 : 0,
+              t.isMinimized ? 1 : 0, t.isFullScreen ? 1 : 0)
     }
 
     /// A drag only counts as a window drag once the window itself moved without resizing.
@@ -134,8 +139,7 @@ final class DragSnapController {
         if !isWindowDrag {
             guard let window = tracked, let start = startFrame else { return }
             guard let now = WindowMover.frame(of: window) else { return }
-            let moved = hypot(now.minX - start.minX, now.minY - start.minY) > 3
-            let resized = abs(now.width - start.width) > 2 || abs(now.height - start.height) > 2
+            let (moved, resized) = DragSnapMath.classify(start: start, now: now)
             if moved && !resized {
                 isWindowDrag = true
                 unsnapIfTracked(window, start: start)
@@ -143,7 +147,7 @@ final class DragSnapController {
                 if Prefs.cycleLayoutsWithWheel { swallower.enable() }   // on failure events pass through unswallowed
             } else {
                 checksWithoutMove += 1
-                if resized || checksWithoutMove > 40 { tracked = nil }   // stop polling AX
+                if DragSnapMath.shouldGiveUp(resized: resized, checksWithoutMove: checksWithoutMove) { tracked = nil }   // stop polling AX
                 return
             }
         }
@@ -153,14 +157,12 @@ final class DragSnapController {
     private func end() {
         defer { reset() }
         guard isWindowDrag, let window = tracked, isActive,
-              let screen = screen(at: NSEvent.mouseLocation)
+              let screen = ZoneLayout.surfaceScreen(at: NSEvent.mouseLocation)
         else { return }
         let selected = selection(on: screen)
         guard let rect = ZoneLayout.boundingRect(of: selected, in: ZoneLayout.zones(for: screen)) else { return }
-        WindowMover.move(window, toAppKitRect: rect)
-        WindowTracker.shared.register(window: window, zones: selected, screen: screen,
-                                      currentFrame: dragPreSnap ?? startFrame.map(ZoneLayout.fromAX) ?? rect,
-                                      snappedFrame: rect)
+        WindowMover.snap(window, toAppKitRect: rect, zones: selected, on: screen,
+                         from: dragPreSnap ?? startFrame.map(ZoneLayout.fromAX) ?? rect)
     }
 
     /// A tracked (snapped) window started moving: forget its zone and, per setting, restore its pre-snap size.
@@ -194,7 +196,7 @@ final class DragSnapController {
 
     /// Show/hide the overlay and update the highlighted zone for the current cursor position.
     private func refresh() {
-        guard isActive, let screen = screen(at: NSEvent.mouseLocation) else {
+        guard isActive, let screen = ZoneLayout.surfaceScreen(at: NSEvent.mouseLocation) else {
             hideOverlay()
             return
         }
@@ -203,8 +205,7 @@ final class DragSnapController {
         if ids != overlayScreenIDs {
             overlay.showDrag(on: screens)
             overlayScreenIDs = ids
-            cursorScreen = nil
-            currentSelection = []
+            clearOverlayState()
         }
         if cursorScreen !== screen { accumulated = [] }
         let selected = selection(on: screen)
@@ -218,14 +219,15 @@ final class DragSnapController {
     private func hideOverlay() {
         guard !overlayScreenIDs.isEmpty else { return }
         overlay.hide()
+        clearOverlayState()
         overlayScreenIDs = []
-        cursorScreen = nil
-        currentSelection = []
         accumulated = []
     }
 
-    private func screen(at point: CGPoint) -> NSScreen? {
-        ZoneLayout.surfaceScreen(at: point)
+    /// Forget which screen/zones the overlay last highlighted so the next `refresh()` redraws them.
+    private func clearOverlayState() {
+        cursorScreen = nil
+        currentSelection = []
     }
 
     private func reset() {

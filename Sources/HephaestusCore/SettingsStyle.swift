@@ -1,6 +1,9 @@
 import SwiftUI
 
 extension View {
+    /// Section heading at the top of a settings section.
+    func settingsHeading() -> some View { font(.headline) }
+
     /// Small explanatory text under a setting: footnote size, wraps to the full row width instead of truncating.
     /// Pass a color for warnings (`.orange`, `.red`).
     func settingsHint(_ color: Color = .secondary) -> some View {

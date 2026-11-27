@@ -56,7 +56,11 @@ final class WindowTracker {
     private var debounce: DispatchWorkItem?
     private var pendingDisplay = false
     private var pendingLayout = false
-    private static let defaultsKey = "windowTrackerState"
+    static let defaultsKey = "windowTrackerState"
+    /// Delay before re-applying after display/layout notifications (screen parameters settle asynchronously).
+    private static let debounceDelay: TimeInterval = 0.6
+    /// Delay after launch before restoring persisted assignments, so apps can create their windows.
+    private static let restoreDelay: TimeInterval = 1.5
 
     private init() {}
 
@@ -71,7 +75,7 @@ final class WindowTracker {
     /// The tracked record for a window, if it is snapped.
     func record(for window: AXUIElement) -> TrackedWindow? {
         prune()
-        return windows.first { CFEqual($0.element, window) }
+        return index(of: window).map { windows[$0] }
     }
 
     /// The last zones an app (bundle id) was snapped to, even if that window has since closed or been unsnapped.
@@ -87,15 +91,14 @@ final class WindowTracker {
     /// Record a successful snap. `currentFrame` is the window's frame (AppKit space) BEFORE the snap;
     /// `snappedFrame` the frame it was moved to. Call after `WindowMover.move`.
     func register(window: AXUIElement, zones: Set<ZoneIndex>, screen: NSScreen, currentFrame: CGRect, snappedFrame: CGRect) {
-        var pid: pid_t = 0
-        AXUIElementGetPid(window, &pid)
+        let pid = AX.pid(of: window)
         let bundle = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier ?? ""
         let sorted = zones.sorted()
         let layoutID = ZoneLayout.layout(for: screen).id
         let uuid = screen.windowTrackerUUID
-        let existingIndex = windows.firstIndex { CFEqual($0.element, window) }
+        let existingIndex = index(of: window)
         let existing = existingIndex.map { (preSnap: windows[$0].preSnapFrame, snapped: windows[$0].snappedFrame) }
-        let rec = TrackedWindow(element: window, pid: pid, bundleID: bundle, titleHint: Self.title(of: window),
+        let rec = TrackedWindow(element: window, pid: pid, bundleID: bundle, titleHint: AX.title(of: window),
                                 zones: sorted, layoutID: layoutID, screenUUID: uuid,
                                 preSnapFrame: WindowStateMath.preSnapFrame(existing: existing, current: currentFrame),
                                 snappedFrame: snappedFrame)
@@ -105,7 +108,7 @@ final class WindowTracker {
     }
 
     func unregister(_ window: AXUIElement) {
-        guard let i = windows.firstIndex(where: { CFEqual($0.element, window) }) else { return }
+        guard let i = index(of: window) else { return }
         windows.remove(at: i)
         changed()
     }
@@ -115,15 +118,15 @@ final class WindowTracker {
     /// (AppKit space) at the same relative spot. Returns the pre-snap frame of the cleared record.
     @discardableResult
     func unsnap(_ window: AXUIElement, startFrame: CGRect, cursor: CGPoint, restoreSize: Bool) -> CGRect? {
-        guard let i = windows.firstIndex(where: { CFEqual($0.element, window) }) else { return nil }
+        guard let i = index(of: window) else { return nil }
         let rec = windows.remove(at: i)
         changed()
         if restoreSize, WindowStateMath.frameMatches(startFrame, rec.snappedFrame) {
-            let current = WindowMover.frame(of: window).map(ZoneLayout.fromAX) ?? startFrame
+            let current = Self.currentFrame(of: window) ?? startFrame
             let f = ZoneLayout.toAX(WindowStateMath.unsnapFrame(current: current, cursor: cursor, restoreSize: rec.preSnapFrame.size))
             var size = f.size, origin = f.origin
-            if let v = AXValueCreate(.cgSize, &size) { AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, v) }
-            if let v = AXValueCreate(.cgPoint, &origin) { AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, v) }
+            WindowMover.setSize(window, &size)
+            WindowMover.setPosition(window, &origin)
         }
         return rec.preSnapFrame
     }
@@ -147,7 +150,7 @@ final class WindowTracker {
         }
         load()
         // Give apps a moment after login/launch before looking at their windows.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.restorePersisted() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.restoreDelay) { [weak self] in self?.restorePersisted() }
     }
 
     private func schedule(display: Bool) {
@@ -162,7 +165,7 @@ final class WindowTracker {
             self.reapplyAll(display: d, layout: l)
         }
         debounce = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: item)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.debounceDelay, execute: item)
     }
 
     /// Re-apply tracked windows to the current geometry by zone index (clamped to the layout's zone count).
@@ -174,34 +177,39 @@ final class WindowTracker {
         guard !screens.isEmpty else { return }
         let uuids = screens.map(\.windowTrackerUUID)
         let fallback = NSScreen.main?.windowTrackerUUID
-        var out: [TrackedWindow] = []
-        for var rec in windows {
-            guard let uuid = WindowStateMath.resolveScreen(home: rec.screenUUID, available: uuids, fallback: fallback),
-                  let screen = screens.first(where: { $0.windowTrackerUUID == uuid }) else { out.append(rec); continue }
-            let layoutNow = ZoneLayout.layout(for: screen)
-            let zones = ZoneLayout.zones(for: screen)
-            let current = WindowMover.frame(of: rec.element).map(ZoneLayout.fromAX)
-            let action = WindowStateMath.reapplyAction(
-                displayTrigger: display, displaySetting: Prefs.reapplyOnDisplayChange,
-                layoutTrigger: layout, layoutSetting: Prefs.reapplyOnLayoutChange,
-                layoutIDChanged: layoutNow.id != rec.layoutID,
-                movedExternally: current.map { !WindowStateMath.frameMatches($0, rec.snappedFrame) } ?? false)
-            switch action {
-            case .keep: out.append(rec)
-            case .drop: continue
-            case .apply:
-                guard let target = WindowStateMath.reapplyTarget(zones: rec.zones, in: zones) else { out.append(rec); continue }
-                if current.map({ !WindowStateMath.frameMatches($0, target, tolerance: 1) }) ?? true {
-                    WindowMover.move(rec.element, toAppKitRect: target)
-                }
-                rec.zones = WindowStateMath.clampZones(rec.zones, count: zones.count)
-                rec.snappedFrame = target
-                rec.layoutID = layoutNow.id
-                out.append(rec)
-            }
+        windows = windows.compactMap {
+            reapplied($0, screens: screens, uuids: uuids, fallback: fallback, display: display, layout: layout)
         }
-        windows = out
         changed()
+    }
+
+    /// The record after re-applying it to current geometry, or nil when it should be dropped.
+    private func reapplied(_ original: TrackedWindow, screens: [NSScreen], uuids: [String], fallback: String?,
+                           display: Bool, layout: Bool) -> TrackedWindow? {
+        var rec = original
+        guard let uuid = WindowStateMath.resolveScreen(home: rec.screenUUID, available: uuids, fallback: fallback),
+              let screen = screens.first(where: { $0.windowTrackerUUID == uuid }) else { return rec }
+        let layoutNow = ZoneLayout.layout(for: screen)
+        let zones = ZoneLayout.zones(for: screen)
+        let current = Self.currentFrame(of: rec.element)
+        let action = WindowStateMath.reapplyAction(
+            displayTrigger: display, displaySetting: Prefs.reapplyOnDisplayChange,
+            layoutTrigger: layout, layoutSetting: Prefs.reapplyOnLayoutChange,
+            layoutIDChanged: layoutNow.id != rec.layoutID,
+            movedExternally: current.map { !WindowStateMath.frameMatches($0, rec.snappedFrame) } ?? false)
+        switch action {
+        case .keep: return rec
+        case .drop: return nil
+        case .apply:
+            guard let target = WindowStateMath.reapplyTarget(zones: rec.zones, in: zones) else { return rec }
+            if current.map({ !WindowStateMath.frameMatches($0, target, tolerance: 1) }) ?? true {
+                WindowMover.move(rec.element, toAppKitRect: target)
+            }
+            rec.zones = WindowStateMath.clampZones(rec.zones, count: zones.count)
+            rec.snappedFrame = target
+            rec.layoutID = layoutNow.id
+            return rec
+        }
     }
 
     /// Adopt persisted assignments whose window is found sitting at its recorded frame (best effort).
@@ -212,17 +220,14 @@ final class WindowTracker {
         var claimed: [pid_t: Set<Int>] = [:]
         for p in pending {
             for app in NSRunningApplication.runningApplications(withBundleIdentifier: p.bundleID) {
-                let axApp = AXUIElementCreateApplication(app.processIdentifier)
-                var ref: CFTypeRef?
-                guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &ref) == .success,
-                      let wins = ref as? [AXUIElement] else { continue }
+                guard let wins = AX.windows(pid: app.processIdentifier) else { continue }
                 let cands = wins.map { w in
-                    WindowStateMath.Candidate(title: Self.title(of: w),
-                                              frame: WindowMover.frame(of: w).map(ZoneLayout.fromAX) ?? .zero)
+                    WindowStateMath.Candidate(title: AX.title(of: w),
+                                              frame: Self.currentFrame(of: w) ?? .zero)
                 }
                 guard let i = WindowStateMath.bestMatch(title: p.titleHint, snapped: p.snappedFrame, candidates: cands,
                                                         excluding: claimed[app.processIdentifier] ?? []),
-                      !windows.contains(where: { CFEqual($0.element, wins[i]) }) else { continue }
+                      index(of: wins[i]) == nil else { continue }
                 claimed[app.processIdentifier, default: []].insert(i)
                 windows.append(TrackedWindow(element: wins[i], pid: app.processIdentifier, bundleID: p.bundleID,
                                              titleHint: cands[i].title, zones: p.zones, layoutID: p.layoutID,
@@ -252,10 +257,8 @@ final class WindowTracker {
         NotificationCenter.default.post(name: Self.didChange, object: self)
     }
 
-    private static func title(of w: AXUIElement) -> String {
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(w, kAXTitleAttribute as CFString, &ref) == .success else { return "" }
-        return (ref as? String) ?? ""
+    private func index(of window: AXUIElement) -> Int? {
+        windows.firstIndex { CFEqual($0.element, window) }
     }
 
     private func save() {
