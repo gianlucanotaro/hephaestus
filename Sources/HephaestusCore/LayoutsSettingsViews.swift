@@ -19,21 +19,25 @@ struct ScreenLayoutsSettingsView: View {
                 set: { store.setDefaultLayout(id: $0, for: o); tick += 1 })
     }
 
+    private func layoutOptions(_ layouts: [Layout]) -> some View {
+        ForEach(layouts) { Text($0.name).tag($0.id) }
+    }
+
     var body: some View {
         let layouts = LayoutStore.shared.all
         VStack(alignment: .leading, spacing: 8) {
-            Text("Layout per screen").font(.headline)
+            Text("Layout per screen").settingsHeading()
             ForEach(ZoneLayout.surfaceScreens(), id: \.displayID) { screen in
-                Picker(Prefs.spanAllScreens ? "All screens" : "\(screen.localizedName)", selection: screenBinding(screen)) {
-                    ForEach(layouts) { Text($0.name).tag($0.id) }
+                Picker(Prefs.spanAllScreens ? "All screens" : screen.localizedName, selection: screenBinding(screen)) {
+                    layoutOptions(layouts)
                 }
             }
             Text("New screens get the default for their orientation.").settingsHint()
             Picker("Default for landscape screens", selection: defaultBinding(.landscape)) {
-                ForEach(layouts) { Text($0.name).tag($0.id) }
+                layoutOptions(layouts)
             }
             Picker("Default for portrait screens", selection: defaultBinding(.portrait)) {
-                ForEach(layouts) { Text($0.name).tag($0.id) }
+                layoutOptions(layouts)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: ScreenLayoutStore.didChange)) { _ in tick += 1 }
@@ -45,27 +49,30 @@ struct ScreenLayoutsSettingsView: View {
 /// Gap override per layout ("Default" follows the global gap).
 struct LayoutGapSettingsView: View {
     @State private var tick = 0
+    /// Picker value meaning "follow the global gap".
+    private static let followGlobal = -1
 
     private func current(_ layout: Layout) -> Int {
         _ = tick
-        guard let g = layout.gap ?? Prefs.builtInGapOverrides[layout.id] else { return -1 }
+        guard let g = layout.gap ?? Prefs.builtInGapOverrides[layout.id] else { return Self.followGlobal }
         return Int(g)
     }
 
     private func binding(_ layout: Layout) -> Binding<Int> {
         Binding(get: { current(layout) },
-                set: { LayoutGapMenu.setGap($0 < 0 ? nil : Double($0), forLayoutID: layout.id); tick += 1 })
+                set: { LayoutGapMenu.setGap($0 == Self.followGlobal ? nil : Double($0), forLayoutID: layout.id); tick += 1 })
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Gap per layout").font(.headline)
+            Text("Gap per layout").settingsHeading()
             ForEach(LayoutStore.shared.all) { layout in
+                let value = current(layout)
                 Picker(layout.name, selection: binding(layout)) {
-                    Text("Default (\(Int(Prefs.gap)) pt)").tag(-1)
+                    Text("Default (\(Int(Prefs.gap)) pt)").tag(Self.followGlobal)
                     ForEach(LayoutGapMenu.presets.map(Int.init), id: \.self) { Text("\($0) pt").tag($0) }
-                    if current(layout) >= 0, !LayoutGapMenu.presets.contains(Double(current(layout))) {
-                        Text("\(current(layout)) pt").tag(current(layout))
+                    if value != Self.followGlobal, !LayoutGapMenu.presets.contains(Double(value)) {
+                        Text("\(value) pt").tag(value)
                     }
                 }
             }
@@ -80,7 +87,7 @@ struct LayoutEditorButtons: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Layout editors").font(.headline)
+            Text("Layout editors").settingsHeading()
             HStack {
                 Button("New grid layout…") { if let s = screen() { GridEditor.open(on: s) } }
                 Button("New canvas layout…") { if let s = screen() { CanvasEditor.open(on: s) } }

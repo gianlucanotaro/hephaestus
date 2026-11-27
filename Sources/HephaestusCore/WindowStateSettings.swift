@@ -8,7 +8,7 @@ struct WindowStateSettings: View {
 
     var body: some View {
         Group {
-            Text("Window memory").font(.headline)
+            Text("Window memory").settingsHeading()
             Toggle("Restore original size when dragged out of a zone", isOn: $restoreSize)
             Toggle("Re-apply zones when displays change", isOn: $onDisplay)
             Toggle("Move snapped windows when the layout changes", isOn: $onLayout)
