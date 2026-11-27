@@ -42,6 +42,6 @@ enum SettingsCatalog {
         Prefs.editorHotkeyLetterKey,    // legacy letter, migrated into editorHotkeyKeyCode by ShortcutMigration
         Prefs.lastUpdateCheckKey,       // timestamp shown as text in General > Updates
         Prefs.skippedUpdateVersionKey,  // set by the "Skip This Version" button
-        "windowTrackerState",          // persistence blob (WindowTracker)
+        WindowTracker.defaultsKey,      // persistence blob (WindowTracker)
     ]
 }
