@@ -33,12 +33,29 @@ enum Prefs {
         registerShortcutDefaults()
         registerUpdateDefaults()
         UserDefaults.standard.register(defaults: [
-            aspectWKey: 16.0, aspectHKey: 9.0, gapKey: 8.0, dragActivationKey: DragActivation.shift.rawValue,
-            multiZoneModifierKey: MultiZoneModifier.control.rawValue, showAllScreensKey: false, useSystemColorsKey: true,
-            highlightColorKey: "#0A84FF", inactiveColorKey: "#8E8E93", borderColorKey: "#0A84FF", numberColorKey: "#FFFFFF",
-            opacityKey: 0.5, showNumbersKey: true,
+            aspectWKey: defaultAspectW, aspectHKey: defaultAspectH, gapKey: defaultGap,
+            dragActivationKey: defaultDragActivation, multiZoneModifierKey: defaultMultiZoneModifier,
+            showAllScreensKey: defaultShowAllScreens, useSystemColorsKey: defaultUseSystemColors,
+            highlightColorKey: defaultHighlightColor, inactiveColorKey: defaultInactiveColor,
+            borderColorKey: defaultBorderColor, numberColorKey: defaultNumberColor,
+            opacityKey: defaultOpacity, showNumbersKey: defaultShowNumbers,
         ])
     }
+
+    // Registered defaults. Also used as the `@AppStorage` fallbacks in the settings views so the two cannot drift.
+    static let defaultAspectW = 16.0
+    static let defaultAspectH = 9.0
+    static let defaultGap = 8.0
+    static let defaultDragActivation = DragActivation.shift.rawValue
+    static let defaultMultiZoneModifier = MultiZoneModifier.control.rawValue
+    static let defaultShowAllScreens = false
+    static let defaultUseSystemColors = true
+    static let defaultHighlightColor = "#0A84FF"
+    static let defaultInactiveColor = "#8E8E93"
+    static let defaultBorderColor = "#0A84FF"
+    static let defaultNumberColor = "#FFFFFF"
+    static let defaultOpacity = 0.5
+    static let defaultShowNumbers = true
 
     static var multiZoneModifier: MultiZoneModifier {
         MultiZoneModifier(rawValue: UserDefaults.standard.string(forKey: multiZoneModifierKey) ?? "") ?? .control
