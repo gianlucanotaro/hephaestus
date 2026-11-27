@@ -8,9 +8,15 @@ extension Prefs {
     static let allowChildWindowsKey = "eligibilityAllowChildWindows"
     static let excludedAppsKey = "eligibilityExcludedApps"
 
+    static let defaultAllowDialogs = false
+    static let defaultAllowFloating = false
+    static let defaultAllowChildWindows = false
+    static let defaultExcludedApps = ""
+
     static func registerEligibilityDefaults() {
         UserDefaults.standard.register(defaults: [
-            allowDialogsKey: false, allowFloatingKey: false, allowChildWindowsKey: false, excludedAppsKey: "",
+            allowDialogsKey: defaultAllowDialogs, allowFloatingKey: defaultAllowFloating,
+            allowChildWindowsKey: defaultAllowChildWindows, excludedAppsKey: defaultExcludedApps,
         ])
     }
 
@@ -44,9 +50,7 @@ enum WindowEligibility {
     /// Single entry point for drag, hotkeys and (future) auto-placement.
     /// Reads AX attributes, checks the app exclusion list, then classifies.
     static func canSnap(window: AXUIElement) -> Bool {
-        var pid: pid_t = 0
-        AXUIElementGetPid(window, &pid)
-        if let app = NSRunningApplication(processIdentifier: pid),
+        if let app = NSRunningApplication(processIdentifier: AX.pid(of: window)),
            AppExclusion.matches(bundleID: app.bundleIdentifier, name: app.localizedName, list: Prefs.excludedApps) {
             return false
         }
@@ -71,29 +75,15 @@ enum WindowEligibility {
 
     static func readTraits(_ w: AXUIElement) -> WindowTraits {
         var t = WindowTraits()
-        t.role = string(w, kAXRoleAttribute)
-        t.subrole = string(w, kAXSubroleAttribute)
-        t.isModal = bool(w, kAXModalAttribute)
-        t.isMinimized = bool(w, kAXMinimizedAttribute)
-        t.isFullScreen = bool(w, "AXFullScreen")
-        var parent: CFTypeRef?
-        if AXUIElementCopyAttributeValue(w, kAXParentAttribute as CFString, &parent) == .success, let p = parent,
-           CFGetTypeID(p) == AXUIElementGetTypeID() {
-            t.hasParentWindow = string(p as! AXUIElement, kAXRoleAttribute) == kAXWindowRole as String
+        t.role = AX.string(w, kAXRoleAttribute)
+        t.subrole = AX.string(w, kAXSubroleAttribute)
+        t.isModal = AX.bool(w, kAXModalAttribute)
+        t.isMinimized = AX.bool(w, kAXMinimizedAttribute)
+        t.isFullScreen = AX.bool(w, AX.fullScreen)
+        if let parent = AX.element(w, kAXParentAttribute) {
+            t.hasParentWindow = AX.isWindow(parent)
         }
         return t
-    }
-
-    private static func string(_ e: AXUIElement, _ attr: String) -> String? {
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(e, attr as CFString, &ref) == .success else { return nil }
-        return ref as? String
-    }
-
-    private static func bool(_ e: AXUIElement, _ attr: String) -> Bool {
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(e, attr as CFString, &ref) == .success else { return false }
-        return (ref as? Bool) ?? false
     }
 }
 
@@ -113,11 +103,11 @@ enum AppExclusion {
 
 /// Settings section: which windows may snap, overlap resolution, excluded apps.
 struct EligibilitySettingsView: View {
-    @AppStorage(Prefs.allowDialogsKey) private var allowDialogs = false
-    @AppStorage(Prefs.allowFloatingKey) private var allowFloating = false
-    @AppStorage(Prefs.allowChildWindowsKey) private var allowChildWindows = false
+    @AppStorage(Prefs.allowDialogsKey) private var allowDialogs = Prefs.defaultAllowDialogs
+    @AppStorage(Prefs.allowFloatingKey) private var allowFloating = Prefs.defaultAllowFloating
+    @AppStorage(Prefs.allowChildWindowsKey) private var allowChildWindows = Prefs.defaultAllowChildWindows
     @AppStorage(Prefs.overlapResolutionKey) private var overlap = OverlapResolution.smallest.rawValue
-    @AppStorage(Prefs.excludedAppsKey) private var excluded = ""
+    @AppStorage(Prefs.excludedAppsKey) private var excluded = Prefs.defaultExcludedApps
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {

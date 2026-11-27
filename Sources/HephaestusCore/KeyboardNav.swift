@@ -78,17 +78,9 @@ enum KeyboardNav {
     }
 
     private static func frontWindow() -> (AXUIElement, CGRect)? {
-        guard WindowMover.ensureAccessibility(prompt: true),
-              let app = NSWorkspace.shared.frontmostApplication,
-              app.processIdentifier != ProcessInfo.processInfo.processIdentifier
-        else { return nil }
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(AXUIElementCreateApplication(app.processIdentifier),
-                                            kAXFocusedWindowAttribute as CFString, &ref) == .success,
-              let win = ref, let ax = WindowMover.frame(of: win as! AXUIElement)
-        else { return nil }
-        guard WindowEligibility.canSnap(window: win as! AXUIElement) else { NSSound.beep(); return nil }
-        return (win as! AXUIElement, ZoneLayout.fromAX(ax))
+        guard let win = WindowMover.focusedWindow(prompt: true), let ax = WindowMover.frame(of: win) else { return nil }
+        guard WindowEligibility.canSnap(window: win) else { NSSound.beep(); return nil }
+        return (win, ZoneLayout.fromAX(ax))
     }
 
     private static func move(_ direction: NavDirection) {
